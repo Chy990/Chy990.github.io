@@ -1,7 +1,7 @@
 ---
 title: "First Test Notes"
 collection: publications
-permalink: /publication/2009-10-01-paper-title-number-1
+permalink: /publication/2024-08-09-First-Test-Notes
 excerpt: '测试性公开笔记'
 date: 2024-08-09
 venue: '2024 S2'
