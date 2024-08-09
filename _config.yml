@@ -26,13 +26,13 @@ author:
   pronouns         : # example: "she/her"  
   bio              : "Adjustment"
   location         : "Sydney"
-  employer         : 
-  uri              : 
+  # employer         : 
+  # uri              : 
   email            : "chy1923734008@gmail.com" 
 
   # Academic websites
-  arxiv            : # URL - Update with the correct link to your profile
-  googlescholar    : "https://scholar.google.com/citations?user=PS_CX0AAAAAJ"
+  # arxiv            : # URL - Update with the correct link to your profile
+  # googlescholar    : "https://scholar.google.com/citations?user=PS_CX0AAAAAJ"
   impactstory      : # URL
   orcid            : "http://orcid.org/yourorcidurl"
   semantic         : # URL
