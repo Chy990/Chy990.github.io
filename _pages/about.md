@@ -7,8 +7,15 @@ redirect_from:
   - /about.html
 ---
 
-👋 Hi, I'm **[Bill Chen]**!
+Here is **Bill Chen**
 
-I'm currently a **undergraduate student** in **[University of Sydney](https://www.sydney.edu.au/)**. My passion lies in solving complex problems through **engineering** and **technology**. I enjoy working on projects that challenge me to learn new things, and I'm always eager to collaborate on interesting ideas.
+Currently an undergraduate student in **[University of Sydney](https://www.sydney.edu.au/).**
+
+Focus on:
+- Aeronautical Engineering
+- Coding
+- Operational System
+
+Every day is a new beginning. Take a deep breath, smile, and start again.
 
 [Email](mailto:chy1923734008@gmail.com)/[Github](https://github.com/Chy990)
