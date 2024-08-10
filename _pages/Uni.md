@@ -5,9 +5,8 @@ permalink: /Uni_Course/
 author_profile: true
 ---
 
-{% if site.author.googlescholar %}
-  <div class="wordwrap">Personal Uni Course Notes</div>
-{% endif %}
+
+<div class="wordwrap">Personal Uni Course Notes</div>
 
 {% include base_path %}
 
