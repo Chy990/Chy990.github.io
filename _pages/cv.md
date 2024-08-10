@@ -46,6 +46,12 @@ Publications
   <ul>{% for post in site.publications reversed %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
+
+UniCourse
+======
+  <ul>{% for post in site.unicourse reversed %}
+    {% include archive-single-cv.html %}
+  {% endfor %}</ul>
   
 Talks
 ======
