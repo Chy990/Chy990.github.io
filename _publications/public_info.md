@@ -1,7 +1,7 @@
 ---
-title: "2460"
+title: "Published Information"
 collection: publications
-permalink: /publications/test
+permalink: /publications/public_info
 excerpt: 'Created by Bill Chen'
 date: 2024-08-09
 venue: 'Semester 2'
@@ -9,4 +9,6 @@ venue: 'Semester 2'
 # citation: 'Your Name, You. (2024). Chen'
 ---
 
-测试一下2460
+This is a test Public Information
+
+本文章用于测试公开信息
