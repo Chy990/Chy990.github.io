@@ -1,9 +1,9 @@
 
 # coding: utf-8
 
-# # Publications markdown generator for academicpages
+# # Unicourse markdown generator for academicpages
 # 
-# Takes a TSV of UniCourse with metadata and converts them for use with [academicpages.github.io](academicpages.github.io). This is an interactive Jupyter notebook, with the core python code in UniCourse.py. Run either from the `markdown_generator` folder after replacing `UniCourse.tsv` with one that fits your format.
+# Takes a TSV of unicourse with metadata and converts them for use with [academicpages.github.io](academicpages.github.io). This is an interactive Jupyter notebook, with the core python code in unicourse.py. Run either from the `markdown_generator` folder after replacing `unicourse.tsv` with one that fits your format.
 # 
 # TODO: Make this work with BibTex and other databases of citations, rather than Stuart's non-standard TSV format and citation style.
 # 
@@ -14,7 +14,7 @@
 # 
 # - `excerpt` and `paper_url` can be blank, but the others must have values. 
 # - `pub_date` must be formatted as YYYY-MM-DD.
-# - `url_slug` will be the descriptive part of the .md file and the permalink URL for the page about the paper. The .md file will be `YYYY-MM-DD-[url_slug].md` and the permalink will be `https://[yourdomain]/UniCourse/YYYY-MM-DD-[url_slug]`
+# - `url_slug` will be the descriptive part of the .md file and the permalink URL for the page about the paper. The .md file will be `YYYY-MM-DD-[url_slug].md` and the permalink will be `https://[yourdomain]/unicourse/YYYY-MM-DD-[url_slug]`
 
 
 # ## Import pandas
@@ -34,8 +34,8 @@ import pandas as pd
 
 # In[3]:
 
-UniCourse = pd.read_csv("UniCourse.tsv", sep="\t", header=0)
-UniCourse
+unicourse = pd.read_csv("unicourse.tsv", sep="\t", header=0)
+unicourse
 
 
 # ## Escape special characters
@@ -62,7 +62,7 @@ def html_escape(text):
 # In[5]:
 
 import os
-for row, item in UniCourse.iterrows():
+for row, item in unicourse.iterrows():
     
     md_filename = str(item.pub_date) + "-" + item.url_slug + ".md"
     html_filename = str(item.pub_date) + "-" + item.url_slug
@@ -72,9 +72,9 @@ for row, item in UniCourse.iterrows():
     
     md = "---\ntitle: \""   + item.title + '"\n'
     
-    md += """collection: UniCourse"""
+    md += """collection: unicourse"""
     
-    md += """\npermalink: /publication/""" + html_filename
+    md += """\npermalink: /unicourse/""" + html_filename
     
     if len(str(item.excerpt)) > 5:
         md += "\nexcerpt: '" + html_escape(item.excerpt) + "'"
@@ -102,7 +102,7 @@ for row, item in UniCourse.iterrows():
     
     md_filename = os.path.basename(md_filename)
        
-    with open("../_UniCourse/" + md_filename, 'w') as f:
+    with open("../_unicourse/" + md_filename, 'w') as f:
         f.write(md)
 
 
