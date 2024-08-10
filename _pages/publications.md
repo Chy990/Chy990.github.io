@@ -5,9 +5,7 @@ permalink: /publications/
 author_profile: true
 ---
 
-{% if site.author.googlescholar %}
-  <div class="wordwrap">Personal notes will show on this page.</div>
-{% endif %}
+<div class="wordwrap">Personal notes will show on this page.</div>
 
 {% include base_path %}
 
