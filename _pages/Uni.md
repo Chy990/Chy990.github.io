@@ -1,7 +1,7 @@
 ---
 layout: archive
 title: "Uni"
-permalink: /Uni_Course/
+permalink: /UniCourse/
 author_profile: true
 ---
 
@@ -10,6 +10,6 @@ author_profile: true
 
 {% include base_path %}
 
-{% for post in site.Uni_Course reversed %}
+{% for post in site.UniCourse reversed %}
   {% include archive-single.html %}
 {% endfor %}
