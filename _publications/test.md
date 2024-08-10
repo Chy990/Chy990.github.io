@@ -1,0 +1,12 @@
+---
+title: "2460"
+collection: publications
+permalink: /publications/test
+excerpt: 'Created by Bill Chen'
+date: 2024-08-09
+venue: 'Semester 2'
+# paperurl: 'http://academicpages.github.io/files/paper3.pdf'
+# citation: 'Your Name, You. (2024). Chen'
+---
+
+测试一下2460
