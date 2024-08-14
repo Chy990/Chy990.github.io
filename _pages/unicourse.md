@@ -2,7 +2,7 @@
 layout: archive
 title: "Uni"
 permalink: /unicourse/
-author_profile: false
+author_profile: true
 ---
 
 
@@ -10,6 +10,7 @@ author_profile: false
 
 {% include base_path %}
 
+<!-- 循环渲染笔记列表 -->
 {% for post in site.unicourse reversed %}
   {% include archive-single.html %}
 {% endfor %}
