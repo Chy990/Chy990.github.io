@@ -93,5 +93,16 @@ layout: default
     </div>
   {% endif %}
 
+  <!--实现笔记大纲展现-->
+  {% if page.toc %}
+    <aside class="sidebar sticky">
+      <h3>大纲</h3>
+      {% include toc.html %}
+    </aside>
+  {% else %}
+    {% include sidebar.html %}
+  {% endif %}
+  
+
   
 </div>
