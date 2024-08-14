@@ -2,7 +2,7 @@
 layout: archive
 title: "Uni"
 permalink: /unicourse/
-author_profile: true
+author_profile: false
 ---
 
 

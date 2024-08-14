@@ -1,8 +1,9 @@
 {% include base_path %}
+<!--设置了与网站基础路径-->
 
-{% if page.author_profile or layout.author_profile or page.sidebar %}
-  <div class="sidebar sticky">
-  {% if page.author_profile or layout.author_profile %}{% include author-profile.html %}{% endif %}
+{% if page.author_profile or layout.author_profile or page.sidebar %}<!--条件渲染-->
+  <div class="sidebar sticky"><!--类使得侧边栏在用户滚动页面时固定在视口中-->
+  {% if page.author_profile or layout.author_profile %}{% include author-profile.html %}{% endif %}<!--布局中定义了author_profile，包含author-profile.html文件，用于显示作者简介-->
   {% if page.sidebar %}
     {% for s in page.sidebar %}
       {% if s.image %}
