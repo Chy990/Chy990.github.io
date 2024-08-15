@@ -2,7 +2,7 @@
 title: "Take off Distance"
 collection: unicourse
 permalink: /unicourse/takeoff
-excerpt: 'Created by Bill Chen'
+excerpt: 'Finished'
 date: 2024-08-15
 venue: 'Semester 2'
 # slidesurl: 'http://academicpages.github.io/files/slides1.pdf'
