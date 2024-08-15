@@ -15,14 +15,10 @@ venue: 'Semester 2'
 Calculate the take-off distance for a generic transport aircraft with the following properties:
 
 - MTOW=55000kg
-  
 - Aspect ratio=9
-
-- Planform area=95$m^2$
-
+- Planform area=95\\(m^2\\)
 - 2 turbofan engines with maximum take-off thrust of 70000N each and maximum continuous thrust of 63000N
-
-- In take-off configuration $C_{L_{max}}$=2.4 & $C_{D_0}$=0.0343
+- In take-off configuration \\(C_{L_{max}}\\)=2.4 & \\(C_{D_0}\\)=0.0343
 
 The aircraft is taking off from a dry asphalt runway at an altitude of 2000ft. Calculate the total take-off distance for this aircraft.
 
@@ -34,9 +30,8 @@ The aircraft is taking off from a dry asphalt runway at an altitude of 2000ft. C
 
 Sea-level condition:
 
-- 288.15\\K\\
-- 1.225\\kg/m^3\\
-
+- 288.15\\(K\\)
+- 1.225\\(kg/m^3\\)
 
 $$
 h=2000ft=2000\times 0.3048m=609.6m
@@ -54,7 +49,7 @@ $$
 
 - T=284.19K
   
-- $\rho$=1.155
+- \\(rho\\)=1.155
 
 ### Step 2: Calculate $V_{stall}$
 
@@ -133,7 +128,6 @@ $$
 $$
 K_A=\frac{\rho}{2(\frac{W}{S})}(C_{D_{T/O}}-\mu C_{L_{T/O}})=\frac{1.155}{2\times(55000\times 9.81\div 95)}\cdot(0.0592-0.03\times 0.1)=5.71\times 10^{-6}\ \ \ \ \ \ \ \ \text{from: 4-pdf15}
 $$
-
 
 ### Step 7: Calculate Ground Roll
 
