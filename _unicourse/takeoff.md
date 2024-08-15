@@ -5,6 +5,8 @@ permalink: /unicourse/takeoff
 excerpt: 'Finished'
 date: 2024-08-15
 venue: 'Semester 2'
+author_profile: false
+toc: true
 # slidesurl: 'http://academicpages.github.io/files/slides1.pdf'
 # paperurl: 'http://academicpages.github.io/files/paper1.pdf'
 # citation: 'Chen. (2024). 2703.'
@@ -49,7 +51,7 @@ $$
 
 - T=284.19K
   
-- \\(\rho\\)=1.155
+- \\(\rho\\)=1.155\\(kg/m^3\\)
 
 ### Step 2: Calculate \\(V_{stall}\\)
 
