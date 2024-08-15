@@ -49,9 +49,9 @@ $$
 
 - T=284.19K
   
-- \\(rho\\)=1.155
+- \\(\rho\\)=1.155
 
-### Step 2: Calculate $V_{stall}$
+### Step 2: Calculate \\(V_{stall}\\)
 
 $$
 V_{stall}=\sqrt{\frac{W}{0.5\rho\cdot S\cdot C_{L_{max}}}}=\sqrt{\frac{55000\times 9.81}{0.5\times 1.155\times 95\times 2.4}}=64.01m/s\ \ \ \ \ \ \ \ \text{from: 2-p21}
@@ -73,7 +73,7 @@ $$
 \Delta C_{D_{LG}}=\frac{W}{S}K_{uc}m^{-0.215}\ \ \ \ \ \ \ \ \text{from: 4-p14}
 $$
 
-这里要注意$K_{uc}$这个玩意你不知道是啥，那就对了，因为题目屁都没给你能真知道就见鬼了。但是从pdf可以知道：
+这里要注意\\(K_{uc}\\)这个玩意你不知道是啥，那就对了，因为题目屁都没给你能真知道就见鬼了。但是从pdf可以知道：
 
 $$
 K_{uc}=5.81\times 10^{-5}\text{ for zero flap and }K_{uc}=3.16\times 10^{-5}\text{ for max flap}
@@ -93,7 +93,7 @@ $$
 C_{D_0(T/O)}=C_{D_0}+\Delta C_{D_{LG}}=0.0343+0.0244=0.0587
 $$
 
-### Step 4:  Calculate take-off $C_D$
+### Step 4:  Calculate take-off \\(C_D\\)
 
 $$
 C_{D(T/O)}=C_{D_0(T/O)}+KC_L^2
@@ -119,7 +119,7 @@ $$
 \text{n varies from 0.7 at sea-level to 1 at cruise}
 $$
 
-### Step 6: $K_A$ & $K_T$ coefficient
+### Step 6: \\(K_A\\) & \\(K_T\\) coefficient
 
 $$
 K_T=\frac{T_{T/O}}{W}-\mu=\frac{134350}{55000\times 9.81}-0.03=0.219\ \ \ \ \ \ \ \ \text{from: 4-p13, p15}
@@ -139,7 +139,7 @@ $$
 \text{N choose 3 because of large aircraft, from: 4-p15}
 $$
 
-### Step 8: Calculate $S_a$
+### Step 8: Calculate \\(S_a\\)
 
 $$
 R=\frac{6.96V_{st}^2}{g}=\frac{6.96\times 64.01^2}{9.81}=2907m\ \ \ \ \ \ \ \ \text{from: 4-p19}
