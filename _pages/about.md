@@ -1,13 +1,13 @@
 ---
 permalink: /
-title: "About me"
+title: "About"
 author_profile: true
 redirect_from: 
   - /about/
   - /about.html
 ---
 
-Here is **Bill Chen**
+Here is **Chen**
 
 Currently an undergraduate student in **[University of Sydney](https://www.sydney.edu.au/).**
 
