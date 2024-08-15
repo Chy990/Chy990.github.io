@@ -34,12 +34,9 @@ The aircraft is taking off from a dry asphalt runway at an altitude of 2000ft. C
 
 Sea-level condition:
 
-- 288.15$K$
+- 288.15\\K\\
+- 1.225\\kg/m^3\\
 
-- 1.225$kg/m^3$
-
-- $288.15 \, \text{K}$
-- $1.225 \, \text{kg/m}^3$
 
 $$
 h=2000ft=2000\times 0.3048m=609.6m
