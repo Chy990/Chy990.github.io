@@ -38,6 +38,9 @@ Sea-level condition:
 
 - 1.225$kg/m^3$
 
+- $288.15 \, \text{K}$
+- $1.225 \, \text{kg/m}^3$
+
 $$
 h=2000ft=2000\times 0.3048m=609.6m
 $$
