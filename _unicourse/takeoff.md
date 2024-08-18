@@ -3,7 +3,7 @@ title: "Take off Distance"
 collection: unicourse
 permalink: /unicourse/takeoff
 excerpt: 'Finished'
-date: 2024-08-15
+date: 2024-08-19
 venue: 'Semester 2'
 author_profile: false
 toc: true
@@ -12,7 +12,7 @@ toc: true
 # citation: 'Chen. (2024). 2703.'
 ---
 
-# Question 
+# Question 1
 
 Calculate the take-off distance for a generic transport aircraft with the following properties:
 
@@ -168,4 +168,28 @@ $$
 
 End.
 
+
+# Question 3
+
+A small aircraft has the following properties:
+
+- Wing span: 17ft
+- Wing planform area: \\(37.8ft^2\\)
+- MTOW=960lb
+- Fuel capacity: 55gal
+- Powerplant: TRS 18 turbojet with max thrust at sea level of 202 lb and specific fuel consumption of 1.3lb/(lb·h)
+
+The drag polar in a clean configuration is approximately given by:
+
+$$
+C_D=0.02+0.062C_L^2
+$$
+
+Calculate the total take-off distance at sea-level including clearance of a 35ft obstacle. Assume the runway is firm dirt with coefficient of friction of \\(\mu_r=0.04\\) and the Oswald's efficiency factor for the aircraft in this configuration is \\(e=0.9071\\) (use this to recalculate k for the take-off configuration.) Further, assume that flaps are partilly deployed with a \\(C_{L_max}=1.6\\).
+
+### Step 1: Calculate \\(V_{stall}\\)
+
+$$
+V_{stall}=\sqrt{\frac{W}{0.5\rho S C_{L_{max}}}}=\sqrt{\frac{960}{0.5}}
+$$
 
