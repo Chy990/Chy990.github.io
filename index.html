@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <!--
+      index.html 负责“页面结构”：有哪些区域、每个区域里放什么内容。
+      真正的视觉样式，比如颜色、布局、动画速度，主要在 styles.css。
+      动态读取笔记/仓库/相册内容，主要在 script.js。
+    -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chen的试验台</title>
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <!--
+      ?v=20260704-12 是开发期的缓存版本号。
+      如果你改了 styles.css / script.js 但刷新后没变化，可以把这里和底部 script 的 v 改大一点。
+    -->
+    <link rel="stylesheet" href="./styles.css?v=20260704-12" />
+  </head>
+  <body>
+    <!--
+      这个 canvas 是背景粒子层。它本身没有文字内容，
+      具体怎么画星点、怎么跟随鼠标移动，由 script.js 里的 drawStarfield() 控制。
+    -->
+    <canvas id="starfield" aria-hidden="true"></canvas>
+
+    <!-- 自定义鼠标光圈现在在 CSS 中隐藏；保留这个元素，避免改动 JS 结构。 -->
+    <div class="cursor-dot" aria-hidden="true"></div>
+
+    <!-- 页面主体容器：限制最大宽度，让内容在大屏上不会铺得太散。 -->
+    <div class="page-shell">
+      <!--
+        顶部导航栏。
+        data-reveal 表示这个元素会被 script.js 监听，进入视口时触发淡入上移动画。
+      -->
+      <header class="site-header" data-reveal>
+        <a class="brand" href="#home" aria-label="返回首页">
+          <span class="brand-mark"></span>
+          <span>Chen</span>
+        </a>
+
+        <!--
+          一级菜单：笔记、仓库、相册、个人。
+          href="#notes" 这种写法会跳转到页面里 id="notes" 的 section。
+          data-nav 会被 script.js 用来判断当前滚动到哪个栏目，并高亮菜单。
+        -->
+        <nav class="primary-nav" aria-label="一级菜单">
+          <a href="#notes" data-nav>笔记</a>
+          <a href="#repos" data-nav>仓库</a>
+          <a href="#gallery" data-nav>相册</a>
+          <a href="#profile" data-nav>个人</a>
+        </nav>
+      </header>
+
+      <main>
+        <!--
+          首页首屏 Hero：用户进入网站第一眼看到的区域。
+          左边是标题和按钮，右边是装饰性的 3D 卡片、轨道和浮动照片。
+          这些装饰物的视觉位置和动画在 styles.css 的 .hero、.orbit、.journal-card 等规则里。
+        -->
+        <section id="home" class="hero">
+          <div class="hero-copy" data-reveal>
+            <p class="eyebrow">Personal Journal / Notes / Gallery</p>
+            <h1>把生活写成一条会发光的时间线。</h1>
+            <p class="hero-text">
+              这里收集阅读笔记、小项目仓库、旅行相册和一点点关于自己的长话短说。
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="#notes">开始阅读</a>
+              <a class="button ghost" href="#repos">看仓库</a>
+              <a class="button ghost" href="#gallery">看相册</a>
+            </div>
+          </div>
+
+          <div class="hero-visual" data-reveal>
+            <div class="orbit orbit-one"></div>
+            <div class="orbit orbit-two"></div>
+            <div class="journal-card">
+              <span class="card-date">2026.06</span>
+              <strong>今日灵感</strong>
+              <p>给每个普通瞬间留一点被重新发现的余地。</p>
+            </div>
+            <div class="floating-photo photo-one"></div>
+            <div class="floating-photo photo-two"></div>
+          </div>
+        </section>
+
+        <!--
+          详情阅读区域。
+          当你点击笔记、仓库或相册卡片时，script.js 会把对应文件内容渲染到这里。
+          URL 会变成 #note/xxx.md、#repo/xxx.md 或 #photo/xxx.jpg。
+        -->
+        <section id="reader" class="content-section reader-section" aria-hidden="true">
+          <article class="reader-panel">
+            <a class="reader-back" href="#notes">返回列表</a>
+            <p class="eyebrow reader-type">Reader</p>
+            <h2 class="reader-title">内容详情</h2>
+            <div class="reader-body"></div>
+          </article>
+        </section>
+
+        <!--
+          笔记区域。
+          内容来源是 content/notes 文件夹里的 Markdown。
+          start-blog.command 会先运行 generate-content-index.py，
+          自动把 notes 目录里的 .md 文件整理成页面可读取的清单。
+        -->
+        <section id="notes" class="content-section split-section">
+          <div class="section-heading" data-reveal>
+            <h2>笔记</h2>
+            <p class="eyebrow">Notes</p>
+          </div>
+          <div class="note-filters" aria-label="按笔记类型筛选" data-reveal></div>
+          <div class="note-grid">
+            <div class="loading-row" data-reveal>正在读取笔记...</div>
+          </div>
+        </section>
+
+        <!--
+          仓库区域。
+          这里 HTML 只放一个“正在读取”的占位元素；
+          页面加载后，script.js 会读取自动生成的内容清单和对应 Markdown，
+          再把真正的小项目卡片插入 .repo-grid 容器。
+        -->
+        <section id="repos" class="content-section">
+          <div class="section-heading" data-reveal>
+            <h2>仓库</h2>
+            <p class="eyebrow">Repository</p>
+          </div>
+          <div class="repo-grid">
+            <div class="loading-row" data-reveal>正在读取仓库...</div>
+          </div>
+        </section>
+
+        <!--
+          相册区域。
+          内容来源是 content/gallery 文件夹里的 jpg/png 图片。
+          图片标题会根据文件名自动生成，不需要再手写 JSON。
+        -->
+        <section id="gallery" class="content-section">
+          <div class="section-heading" data-reveal>
+            <h2>相册</h2>
+            <p class="eyebrow">Gallery</p>
+          </div>
+          <div class="gallery-grid">
+            <div class="loading-row" data-reveal>正在读取相册...</div>
+          </div>
+        </section>
+
+        <!--
+          个人介绍区域。
+          目前这里是固定写在 HTML 里的文字和统计数据；
+          如果以后想让它也从 Markdown 读取，可以在 script.js 增加类似 renderProfile() 的函数。
+        -->
+        <section id="profile" class="content-section profile-section">
+          <div class="profile-panel" data-reveal>
+            <div>
+              <p class="eyebrow">Profile</p>
+              <h2>个人</h2>
+              <p>
+                这个实验台是用于记录笔记、仓库和一些照片的平台。
+              </p>
+            </div>
+            <div class="profile-stats">
+              <span><strong data-stat="repos">0</strong> 个项目</span>
+              <span><strong data-stat="notes">0</strong> 则笔记</span>
+              <span><strong data-stat="gallery">0</strong> 张照片</span>
+            </div>
+          </div>
+        </section>
+
+        <!--
+          最近更新区域。
+          内容来源是 content/updates 文件夹里的 Markdown，
+          包括内容更新历史和模板更新历史。
+        -->
+        <section id="updates" class="content-section updates-section">
+          <div class="section-heading" data-reveal>
+            <h2>最近更新</h2>
+            <p class="eyebrow">Updates</p>
+          </div>
+          <div class="update-grid">
+            <div class="loading-row" data-reveal>正在读取更新历史...</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!--
+      content-index.js 是 generate-content-index.py 自动生成的文件。
+      你平时只需要增删 notes/repos/gallery 里的文件，不需要手动编辑这个清单。
+    -->
+    <script src="./content/content-index.js?v=20260704-12"></script>
+
+    <!-- script.js 放在 body 末尾，确保上面的 DOM 元素已经存在，JS 才开始查找和操作它们。 -->
+    <script src="./script.js?v=20260704-12"></script>
+  </body>
+</html>

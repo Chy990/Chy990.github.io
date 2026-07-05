@@ -1,0 +1,107 @@
+{
+  "notes": [
+    {
+      "date": "2026-06-02",
+      "type": "经验",
+      "title": "iOS用户换OPPO",
+      "file": "2026_06_02_经验_ios2oppo.md"
+    },
+    {
+      "date": "2026-04-15",
+      "type": "读后笔记",
+      "title": "认知觉醒：开启自我改变的原动力",
+      "file": "2026_04_15_读后笔记_认知觉醒.md"
+    },
+    {
+      "date": "2025-07-28",
+      "type": "读后笔记",
+      "title": "大力出奇迹：张一鸣的创业心路与算法思维",
+      "file": "2025_07_28_读后笔记_大力出奇迹.md"
+    },
+    {
+      "date": "2025-05-30",
+      "type": "读后笔记",
+      "title": "任正非传",
+      "file": "2025_05_30_读后笔记_任正非传.md"
+    },
+    {
+      "date": "2025-04-03",
+      "type": "读后笔记",
+      "title": "王兴传",
+      "file": "2025_04_03_读后笔记_王兴传.md"
+    },
+    {
+      "date": "2024-09-10",
+      "type": "读后笔记",
+      "title": "富爸爸穷爸爸",
+      "file": "2024_09_10_读后笔记_富爸爸穷爸爸.md"
+    },
+    {
+      "date": "2024-08-28",
+      "type": "读后笔记",
+      "title": "邓小平时代",
+      "file": "2024_08_28_读后笔记_邓小平时代.md"
+    },
+    {
+      "date": "2024-08-06",
+      "type": "读后笔记",
+      "title": "李光耀观天下",
+      "file": "2024_08_06_读后笔记_李光耀观天下.md"
+    },
+    {
+      "date": "2024-05-03",
+      "type": "读后笔记",
+      "title": "腾讯传1998-2016：中国互联网公司进化论",
+      "file": "2024_05_03_读后笔记_腾讯传.md"
+    },
+    {
+      "date": "2024-03-03",
+      "type": "读后笔记",
+      "title": "价值：张磊投资思想全面公开",
+      "file": "2024_03_03_读后笔记_价值.md"
+    }
+  ],
+  "repos": [
+    {
+      "status": "Project",
+      "title": "Minecraft 1.21.x 自动连点器 Mod",
+      "file": "我的世界连点器mod.md"
+    },
+    {
+      "status": "Project",
+      "title": "YOLO Realtime Detector",
+      "file": "yolo-realtime-detector.md"
+    }
+  ],
+  "gallery": [
+    {
+      "title": "forest light",
+      "file": "forest-light.jpg",
+      "alt": "forest light"
+    },
+    {
+      "title": "mountain weekend",
+      "file": "mountain-weekend.jpg",
+      "alt": "mountain weekend"
+    },
+    {
+      "title": "open road",
+      "file": "open-road.jpg",
+      "alt": "open road"
+    }
+  ],
+  "updates": [
+    {
+      "date": "2026-07-02",
+      "type": "content",
+      "title": "内容更新历史",
+      "file": "2026_07_02_content_updates.md"
+    },
+    {
+      "date": "2026-07-02",
+      "type": "template",
+      "title": "模板更新历史",
+      "file": "2026_07_02_template_updates.md"
+    }
+  ]
+}
