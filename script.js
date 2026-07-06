@@ -17,7 +17,7 @@ const ctx = canvas.getContext("2d");
 // 自定义鼠标光圈，以及顶部导航链接。
 const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260704-12";
+const CONTENT_VERSION = "20260706-04";
 
 // canvas 当前尺寸和背景粒子数组。
 let width = 0;
@@ -679,26 +679,33 @@ function updateProfileStats() {
 
 function setReader({ type, title, bodyHtml, backHref }) {
   const reader = document.querySelector("#reader");
-  const panel = reader.querySelector(".reader-panel");
-  reader.classList.remove("is-open");
-  reader.setAttribute("aria-hidden", "true");
-  panel.style.transform = "translateY(8px) scale(0.995)";
+  const shouldMorphOpen = pendingOpenRect && !prefersReducedMotion();
+
   reader.querySelector(".reader-type").textContent = type;
   reader.querySelector(".reader-title").textContent = title;
   reader.querySelector(".reader-body").innerHTML = bodyHtml;
   reader.querySelector(".reader-back").setAttribute("href", backHref);
+  reader.classList.toggle("is-opening-from-card", Boolean(shouldMorphOpen));
+  document.body.classList.add("is-reader-open");
   reader.classList.add("is-open");
   reader.setAttribute("aria-hidden", "false");
   pauseStarfield();
   prepareHover(reader);
   reader.scrollTop = 0;
-  animateReaderOpen();
+
+  if (shouldMorphOpen) {
+    animateReaderOpen(reader);
+  } else {
+    pendingOpenRect = null;
+  }
 }
 
 function hideReader() {
   const reader = document.querySelector("#reader");
+  reader.classList.remove("is-opening-from-card");
   reader.classList.remove("is-open");
   reader.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-reader-open");
   resumeStarfield();
 }
 
@@ -741,9 +748,11 @@ async function handleRoute() {
   const hash = fullHash.slice(1);
   const [kind, encodedFile] = hash.split("/");
 
+  if (isClosingReader) return;
+
   if (!encodedFile) {
-    if (isReaderOpen() && lastDetailHash && !isClosingReader) {
-      await animateReaderClose(fullHash || "#home", lastDetailHash);
+    if (isReaderOpen() && lastDetailHash) {
+      await animateReaderClose(fullHash || "#home", lastDetailHash, { updateHash: false });
       return;
     }
 
@@ -763,18 +772,15 @@ async function handleRoute() {
 }
 
 /*
-  详情打开动画：类似手机里点 app。
-  点击卡片时 recordOpenSource() 会记住卡片在页面里的位置和当时的滚动位置；
-  详情面板出现后，这里把 reader-panel 从卡片位置放大到最终位置。
+  点击卡片时记住卡片在页面里的位置和当时的滚动位置；
+  返回列表时会用它恢复到原来的阅读位置。
 */
 function recordOpenSource(link) {
   const rect = link.getBoundingClientRect();
   const href = link.getAttribute("href");
   pendingOpenRect = {
-    left: rect.left + window.scrollX,
-    top: rect.top + window.scrollY,
-    viewportLeft: rect.left,
-    viewportTop: rect.top,
+    left: rect.left,
+    top: rect.top,
     width: rect.width,
     height: rect.height,
   };
@@ -798,70 +804,43 @@ function createMorphSurface(rect) {
   return surface;
 }
 
-async function animateReaderOpen() {
-  const panel = document.querySelector(".reader-panel");
-  if (!panel || prefersReducedMotion()) {
-    pendingOpenRect = null;
-    if (panel) {
-      panel.style.opacity = "";
-      panel.style.transform = "";
-    }
-    return;
-  }
-
-  const endRect = panel.getBoundingClientRect();
+async function animateReaderOpen(reader) {
+  const panel = reader.querySelector(".reader-panel");
   const source = pendingOpenRect;
   pendingOpenRect = null;
 
-  if (!source || !endRect.width || !endRect.height) {
-    const fallbackAnimation = panel.animate(
-      [
-        { transform: "translateY(10px) scale(0.99)" },
-        { transform: "translateY(0) scale(1)" },
-      ],
-      { duration: 180, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
-    );
-    await fallbackAnimation.finished.catch(() => {});
-    panel.style.opacity = "";
-    panel.style.transform = "";
+  if (!panel || !source || !source.width || !source.height) {
+    reader.classList.remove("is-opening-from-card");
     return;
   }
 
-  const surface = createMorphSurface({
-    left: source.viewportLeft,
-    top: source.viewportTop,
-    width: source.width,
-    height: source.height,
-  });
-  // 用 transform 代替 left/top/width/height 动画，只走 GPU 合成层，避免每帧重排。
-  surface.style.willChange = "transform, opacity";
-  const sx = endRect.width / source.width;
-  const sy = endRect.height / source.height;
-  const tx = endRect.left - source.viewportLeft;
-  const ty = endRect.top - source.viewportTop;
+  await new Promise((resolve) => requestAnimationFrame(resolve));
 
-  const surfaceAnimation = surface.animate(
+  const endRect = panel.getBoundingClientRect();
+  if (!endRect.width || !endRect.height) {
+    reader.classList.remove("is-opening-from-card");
+    return;
+  }
+
+  const surface = createMorphSurface(endRect);
+  surface.style.willChange = "transform, opacity";
+  const sx = source.width / endRect.width;
+  const sy = source.height / endRect.height;
+  const tx = source.left - endRect.left;
+  const ty = source.top - endRect.top;
+
+  const animation = surface.animate(
     [
-      { transform: "none", opacity: 0.88 },
-      { transform: `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`, opacity: 0 },
+      { transform: `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`, opacity: 0.72 },
+      { transform: "none", opacity: 1 },
     ],
     { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
   );
 
-  const panelAnimation = panel.animate(
-    [
-      { transform: "translateY(8px) scale(0.995)" },
-      { transform: "translateY(0) scale(1)" },
-    ],
-    { duration: 180, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
-  );
-
-  await Promise.all([surfaceAnimation.finished.catch(() => {}), panelAnimation.finished.catch(() => {})]);
+  await animation.finished.catch(() => {});
   surface.style.willChange = "";
   surface.remove();
-
-  panel.style.opacity = "";
-  panel.style.transform = "";
+  reader.classList.remove("is-opening-from-card");
 }
 
 function findCurrentDetailLink(detailHash = window.location.hash) {
@@ -903,14 +882,14 @@ function restoreListPositionForReturn(targetLink, detailHash) {
   详情关闭动画：用一个轻量玻璃表面从阅读面板位置缩回原卡片。
   这里会恢复到点开内容时的滚动位置，不再让主页滚动去寻找原卡片。
 */
-async function animateReaderClose(backHref, detailHash = window.location.hash) {
+async function animateReaderClose(backHref, detailHash = window.location.hash, { updateHash = true } = {}) {
   const reader = document.querySelector("#reader");
   const panel = document.querySelector(".reader-panel");
   const targetLink = findCurrentDetailLink(detailHash);
 
   if (!reader || !panel || !reader.classList.contains("is-open") || prefersReducedMotion()) {
     hideReader();
-    setHashWithoutJump(backHref);
+    if (updateHash) setHashWithoutJump(backHref);
     lastDetailHash = "";
     return;
   }
@@ -929,7 +908,7 @@ async function animateReaderClose(backHref, detailHash = window.location.hash) {
     );
     await fallback.finished.catch(() => {});
     hideReader();
-    setHashWithoutJump(backHref);
+    if (updateHash) setHashWithoutJump(backHref);
     lastDetailHash = "";
     isClosingReader = false;
     return;
@@ -944,7 +923,7 @@ async function animateReaderClose(backHref, detailHash = window.location.hash) {
   const endRect = targetLink.getBoundingClientRect();
   if (!endRect.width || !endRect.height) {
     surface.remove();
-    setHashWithoutJump(backHref);
+    if (updateHash) setHashWithoutJump(backHref);
     lastDetailHash = "";
     isClosingReader = false;
     return;
@@ -971,7 +950,7 @@ async function animateReaderClose(backHref, detailHash = window.location.hash) {
   surface.style.willChange = "";
   surface.remove();
   restoreTargetVisibility();
-  setHashWithoutJump(backHref);
+  if (updateHash) setHashWithoutJump(backHref);
   currentOpenSource = null;
   lastDetailHash = "";
   isClosingReader = false;
@@ -1058,6 +1037,12 @@ document.addEventListener("click", (event) => {
   if (back) {
     const href = back.getAttribute("href") || "#notes";
     event.preventDefault();
+
+    if (currentOpenSource && window.location.hash === currentOpenSource.href) {
+      history.back();
+      return;
+    }
+
     animateReaderClose(href);
     return;
   }

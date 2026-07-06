@@ -2,10 +2,10 @@
 window.BLOG_CONTENT = {
   "notes": [
     {
-      "date": "2026-06-02",
+      "date": "2026-07-02",
       "type": "经验",
       "title": "iOS用户换OPPO",
-      "file": "2026_06_02_经验_ios2oppo.md"
+      "file": "2026_07_02_经验_ios2oppo.md"
     },
     {
       "date": "2026-04-15",

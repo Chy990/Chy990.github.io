@@ -82,6 +82,7 @@
 /* 点击菜单锚点时平滑滚动到对应 section。 */
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 /*
@@ -100,6 +101,10 @@ body {
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+body.is-reader-open {
+  overflow: hidden;
 }
 
 /*
@@ -960,6 +965,7 @@ h3 {
   pointer-events: none;
   isolation: isolate;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   display: grid;
   align-items: start;
   min-height: 100vh;
@@ -994,7 +1000,11 @@ body:has(.reader-section.is-open) .floating-photo {
   background: var(--reader-panel-bg);
   box-shadow: var(--shadow);
   transform-origin: top left;
-  will-change: transform, opacity;
+  will-change: transform;
+}
+
+.reader-section.is-open.is-opening-from-card .reader-panel {
+  visibility: hidden;
 }
 
 /* 打开/返回时使用的干净玻璃表面，只负责位置和尺寸变化，不承载文字内容。 */
