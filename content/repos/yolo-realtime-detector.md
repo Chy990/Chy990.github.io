@@ -2,7 +2,7 @@
 
 ### GitHub 仓库
 
-[待补充 GitHub 仓库链接](https://github.com/Chy990/20260501_YOLO_Detector)
+[Chy990/20260501_YOLO_Detector](https://github.com/Chy990/20260501_YOLO_Detector)
 
 ### 简介
 
