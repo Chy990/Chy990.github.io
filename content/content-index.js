@@ -70,6 +70,11 @@ window.BLOG_CONTENT = {
     },
     {
       "status": "Project",
+      "title": "USYD Assessment Extractor",
+      "file": "USYD作业提取.md"
+    },
+    {
+      "status": "Project",
       "title": "YOLO Realtime Detector",
       "file": "yolo-realtime-detector.md"
     }
