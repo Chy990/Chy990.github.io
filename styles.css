@@ -215,17 +215,12 @@ body.is-header-hidden .site-header {
   letter-spacing: 0;
 }
 
-/*
-  彩色圆形品牌标记。
-  conic-gradient 生成环形渐变，spin 动画让它慢慢旋转。
-*/
+/* 左上角品牌标记。 */
 .brand-mark {
   width: 30px;
   aspect-ratio: 1;
   border-radius: var(--radius-pill); /* 改左上角品牌圆标圆角：修改 --radius-pill。 */
-  background:
-    radial-gradient(circle at 35% 35%, white 0 8%, transparent 9%),
-    conic-gradient(from 30deg, var(--cyan), var(--rose), var(--gold), var(--cyan));
+  background: url("./logo.jpg") center / cover no-repeat;
   box-shadow: 0 0 28px rgba(120, 240, 255, 0.45);
   animation: spin 8s linear infinite;
 }
