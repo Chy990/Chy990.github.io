@@ -4,7 +4,7 @@ window.BLOG_CONTENT = {
     {
       "date": "2026-07-02",
       "type": "经验",
-      "title": "iOS用户换OPPO",
+      "title": "iOS转OPPO笔记",
       "file": "2026_07_02_经验_ios2oppo.md"
     },
     {
