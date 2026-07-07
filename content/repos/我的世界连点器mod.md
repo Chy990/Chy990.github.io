@@ -1,4 +1,4 @@
-# Minecraft 1.21.x 自动连点器 Mod
+# Minecraft 1.21.x 自动连点器
 
 ### GitHub 仓库
 
