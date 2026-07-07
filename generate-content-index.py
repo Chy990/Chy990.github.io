@@ -4,7 +4,7 @@ Scan the content folders and generate content/content-index.js.
 
 You normally do not need to edit the generated file by hand:
 - Add or delete Markdown files in content/notes, content/repos, or content/updates.
-- Add or delete jpg/png images in content/gallery.
+- Add or delete Markdown albums and jpg/png images in content/gallery.
 - Run start-blog.command again.
 
 Note filenames work best with this format:
@@ -25,7 +25,6 @@ ROOT = Path(__file__).resolve().parent
 CONTENT = ROOT / "content"
 JS_OUTPUT = CONTENT / "content-index.js"
 JSON_OUTPUT = CONTENT / "content-index.json"
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 
 def read_first_heading(path: Path) -> str | None:
@@ -38,6 +37,26 @@ def read_first_heading(path: Path) -> str | None:
     except UnicodeDecodeError:
         return None
     return None
+
+
+def read_frontmatter(path: Path) -> dict[str, str]:
+    """Return simple key/value frontmatter from a Markdown file."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return {}
+
+    if not lines or lines[0].strip() != "---":
+        return {}
+
+    data: dict[str, str] = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        key, separator, value = line.partition(":")
+        if separator:
+            data[key.strip().lower()] = value.strip().strip('"')
+    return data
 
 
 def title_from_slug(slug: str) -> str:
@@ -87,22 +106,20 @@ def update_entry(path: Path) -> dict[str, str]:
     Build one update-history record from a Markdown file.
 
     Preferred filename format:
-    2026_07_02_content_updates.md
+    content_updates.md or template_updates.md
     """
-    match = re.match(r"^(\d{4})_(\d{2})_(\d{2})_([^_]+)_(.+)\.md$", path.name)
+    match = re.match(r"^([^_]+)_(.+)\.md$", path.name)
     heading = read_first_heading(path)
 
     if match:
-        year, month, day, update_type, slug = match.groups()
+        update_type, slug = match.groups()
         return {
-            "date": f"{year}-{month}-{day}",
             "type": update_type,
             "title": heading or title_from_slug(slug),
             "file": path.name,
         }
 
     return {
-        "date": "0000-00-00",
         "type": "update",
         "title": heading or title_from_slug(path.stem),
         "file": path.name,
@@ -110,12 +127,22 @@ def update_entry(path: Path) -> dict[str, str]:
 
 
 def gallery_entry(path: Path) -> dict[str, str]:
-    """Build one gallery record from an image file."""
-    title = title_from_slug(path.stem)
+    """Build one gallery record from a Markdown album file."""
+    match = re.match(r"^(\d{4})_(\d{2})_(\d{2})_(?:trip|album)_(.+)\.md$", path.name)
+    frontmatter = read_frontmatter(path)
+    heading = read_first_heading(path)
+
+    date = frontmatter.get("date", "0000-00-00")
+    if match:
+        year, month, day, _slug = match.groups()
+        date = frontmatter.get("date", f"{year}-{month}-{day}")
+
     return {
-        "title": title,
+        "date": date,
+        "place": frontmatter.get("place", ""),
+        "cover": frontmatter.get("cover", ""),
+        "title": heading or title_from_slug(path.stem),
         "file": path.name,
-        "alt": title,
     }
 
 
@@ -133,15 +160,16 @@ def collect() -> dict[str, list[dict[str, str]]]:
     update_type_order = {"content": 0, "template": 1}
     updates = sorted(
         (update_entry(path) for path in (CONTENT / "updates").glob("*.md")),
-        key=lambda item: (-int(item["date"].replace("-", "")), update_type_order.get(item["type"], 99), item["file"]),
+        key=lambda item: (update_type_order.get(item["type"], 99), item["file"]),
     )
     gallery = sorted(
         (
             gallery_entry(path)
-            for path in (CONTENT / "gallery").iterdir()
-            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+            for path in (CONTENT / "gallery").glob("*.md")
+            if re.match(r"^\d{4}_\d{2}_\d{2}_(?:trip|album)_.+\.md$", path.name)
         ),
-        key=lambda item: item["file"].casefold(),
+        key=lambda item: (item["date"], item["file"]),
+        reverse=True,
     )
     return {"notes": notes, "repos": repos, "gallery": gallery, "updates": updates}
 
@@ -160,7 +188,7 @@ def main() -> None:
     print(f"Generated {JSON_OUTPUT.relative_to(ROOT)}")
     print(
         f"Notes: {len(data['notes'])}, Repos: {len(data['repos'])}, "
-        f"Photos: {len(data['gallery'])}, Updates: {len(data['updates'])}"
+        f"Albums: {len(data['gallery'])}, Updates: {len(data['updates'])}"
     )
 
 

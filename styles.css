@@ -826,17 +826,38 @@ h3 {
   transform: scale(1.13);
 }
 
-/* 相册图片左下角标题。 */
+/* 相册卡片左下角的图文信息。 */
 .gallery-item figcaption {
   position: absolute;
   left: 16px;
+  right: 16px;
   bottom: 16px;
-  padding: 9px 12px;
+  padding: 13px 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control); /* 改相册左下角标签圆角：修改 --radius-control。 */
   background: var(--caption-bg);
-  font-weight: 900;
   backdrop-filter: blur(12px);
+}
+
+.gallery-item figcaption span,
+.gallery-item figcaption small {
+  display: block;
+  color: rgba(244, 247, 251, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.gallery-item figcaption strong {
+  display: block;
+  margin: 5px 0 7px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.gallery-item figcaption small p {
+  margin: 0;
+  line-height: 1.55;
 }
 
 /* 个人栏目底部多留一些空间。 */
@@ -1118,17 +1139,37 @@ body:has(.reader-section.is-open) .floating-photo {
 
 .reader-photo {
   overflow: hidden;
-  max-width: 100%;
+  width: fit-content;
+  max-width: min(100%, 980px);
+  margin: 28px auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-shell); /* 改详情大图圆角：修改 --radius-shell。 */
   background: var(--glass);
 }
 
 .reader-photo img {
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
   height: auto;
   max-height: 72vh;
   object-fit: contain;
+}
+
+.reader-photo.is-wide {
+  width: 100%;
+}
+
+.reader-photo.is-wide img {
+  width: 100%;
+}
+
+.reader-photo.is-portrait {
+  max-width: min(100%, 620px);
+}
+
+.reader-photo.is-square {
+  max-width: min(100%, 760px);
 }
 
 /* 品牌圆标旋转动画。 */

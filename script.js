@@ -17,7 +17,7 @@ const ctx = canvas.getContext("2d");
 // 自定义鼠标光圈，以及顶部导航链接。
 const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260706-04";
+const CONTENT_VERSION = "20260707-03";
 
 // canvas 当前尺寸和背景粒子数组。
 let width = 0;
@@ -87,6 +87,14 @@ function escapeHtml(value) {
 
 function normalizeUrl(url) {
   return /^https?:\/\//i.test(url) ? url : "";
+}
+
+function resolveContentImageSrc(src, imageBasePath = "") {
+  if (/^(https?:)?\/\//i.test(src) || src.startsWith("data:") || src.startsWith("./") || src.startsWith("/")) {
+    return src;
+  }
+
+  return `${imageBasePath}${src}`;
 }
 
 function renderInlineMarkdown(value, { allowLinks = true } = {}) {
@@ -180,7 +188,7 @@ function markdownToPreview(markdown, maxLines = 5) {
   把 Markdown 转成详情页可阅读的 HTML。
   这里仍然是轻量转换器，支持标题、段落、列表、代码块和常见行内格式，够个人 blog 起步使用。
 */
-function markdownToHtml(markdown) {
+function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
   const lines = markdown.split("\n");
   let html = "";
   let inList = false;
@@ -246,6 +254,16 @@ function markdownToHtml(markdown) {
       continue;
     }
 
+    const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
+    if (imageMatch) {
+      closeList();
+      const [, alt, src] = imageMatch;
+      const [altText, layoutHint = ""] = alt.split("|").map((part) => part.trim());
+      const layoutClass = ["wide", "portrait", "square"].includes(layoutHint) ? ` is-${layoutHint}` : "";
+      html += `<figure class="reader-photo${layoutClass}"><img src="${escapeHtml(resolveContentImageSrc(src, imageBasePath))}" alt="${escapeHtml(altText)}" /></figure>`;
+      continue;
+    }
+
     closeList();
     html += `<p>${renderInlineMarkdown(line.trim())}</p>`;
   }
@@ -262,6 +280,10 @@ function markdownToHtml(markdown) {
 // 卡片本身已经显示 title，所以预览时去掉 Markdown 第一行 # 标题，避免重复。
 function stripFirstHeading(markdown) {
   return markdown.replace(/^#\s+.*(?:\n|$)/, "");
+}
+
+function stripFrontmatter(markdown) {
+  return markdown.replace(/^---\n[\s\S]*?\n---\n?/, "");
 }
 
 /*
@@ -621,25 +643,31 @@ async function renderNotes() {
 
 /*
   渲染相册：
-  读取自动内容清单，再把图片文件渲染成 <figure>。
-  每张图片使用同样尺寸，保证相册子块统一大小。
+  读取 Markdown 相册记录，卡片展示封面、日期、地点和文字摘要。
 */
 async function renderGallery() {
   const container = document.querySelector(".gallery-grid");
   const entries = getContentIndex().gallery;
   galleryData = entries;
-  container.innerHTML = entries
-    .map((entry) => {
+  const cards = await Promise.all(
+    entries.map(async (entry) => {
+      const markdown = stripFrontmatter(await readText(`./content/gallery/${entry.file}`));
+      const cover = entry.cover || "";
       return `
-        <a class="content-link gallery-item" href="${detailHref("photo", entry.file)}" data-reveal>
+        <a class="content-link gallery-item" href="${detailHref("gallery", entry.file)}" data-reveal>
           <figure>
-            <img src="./content/gallery/${escapeHtml(entry.file)}" alt="${escapeHtml(entry.alt || entry.title)}" />
-            <figcaption>${escapeHtml(entry.title)}</figcaption>
+            ${cover ? `<img src="./content/gallery/${escapeHtml(cover)}" alt="${escapeHtml(entry.title)}" />` : ""}
+            <figcaption>
+              <span>${escapeHtml(entry.date)}${entry.place ? ` / ${escapeHtml(entry.place)}` : ""}</span>
+              <strong>${escapeHtml(entry.title)}</strong>
+              <small>${markdownToPreview(stripFirstHeading(markdown), 2)}</small>
+            </figcaption>
           </figure>
         </a>
       `;
     })
-    .join("");
+  );
+  container.innerHTML = cards.join("");
   prepareReveal(container);
   prepareHover(container);
 }
@@ -650,7 +678,7 @@ async function renderGallery() {
 */
 async function renderUpdates() {
   const container = document.querySelector(".update-grid");
-  const entries = sortByNewestDate(getContentIndex().updates);
+  const entries = getContentIndex().updates;
   updatesData = entries;
   const cards = await Promise.all(
     entries.map(async (entry) => {
@@ -658,7 +686,7 @@ async function renderUpdates() {
       return `
         <a class="content-link is-visible" href="${detailHref("update", entry.file)}" data-reveal>
           <article class="update-card">
-            <p class="card-meta">${escapeHtml(entry.date)} / ${escapeHtml(entry.type)}</p>
+            <p class="card-meta">${escapeHtml(entry.type)}</p>
             <h3>${escapeHtml(entry.title)}</h3>
             <div class="content-preview">${markdownToPreview(stripFirstHeading(markdown), 5)}</div>
           </article>
@@ -727,18 +755,15 @@ async function openMarkdownDetail(kind, file) {
   });
 }
 
-function openPhotoDetail(file) {
+async function openGalleryDetail(file) {
   const entry = galleryData.find((item) => item.file === file);
   if (!entry) return;
 
+  const markdown = stripFrontmatter(await readText(`./content/gallery/${file}`));
   setReader({
-    type: "Photo",
+    type: "Gallery",
     title: entry.title,
-    bodyHtml: `
-      <figure class="reader-photo">
-        <img src="./content/gallery/${escapeHtml(entry.file)}" alt="${escapeHtml(entry.alt || entry.title)}" />
-      </figure>
-    `,
+    bodyHtml: markdownToHtml(stripFirstHeading(markdown), { imageBasePath: "./content/gallery/" }),
     backHref: "#gallery",
   });
 }
@@ -764,8 +789,8 @@ async function handleRoute() {
 
   if (kind === "note" || kind === "repo" || kind === "update") {
     await openMarkdownDetail(kind, file);
-  } else if (kind === "photo") {
-    openPhotoDetail(file);
+  } else if (kind === "gallery") {
+    await openGalleryDetail(file);
   }
 
   lastDetailHash = fullHash;

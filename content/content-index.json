@@ -80,33 +80,30 @@
   ],
   "gallery": [
     {
-      "title": "forest light",
-      "file": "forest-light.jpg",
-      "alt": "forest light"
+      "date": "2026-07-08",
+      "place": "Coastal Evening",
+      "cover": "coastal-evening/cover.jpg",
+      "title": "海边傍晚",
+      "file": "2026_07_08_trip_coastal_evening.md"
     },
     {
-      "title": "mountain weekend",
-      "file": "mountain-weekend.jpg",
-      "alt": "mountain weekend"
-    },
-    {
-      "title": "open road",
-      "file": "open-road.jpg",
-      "alt": "open road"
+      "date": "2026-07-07",
+      "place": "Mountain Weekend",
+      "cover": "mountain-weekend/cover.jpg",
+      "title": "山间周末",
+      "file": "2026_07_07_trip_mountain_weekend.md"
     }
   ],
   "updates": [
     {
-      "date": "2026-07-02",
       "type": "content",
       "title": "内容更新历史",
-      "file": "2026_07_02_content_updates.md"
+      "file": "content_updates.md"
     },
     {
-      "date": "2026-07-02",
       "type": "template",
       "title": "模板更新历史",
-      "file": "2026_07_02_template_updates.md"
+      "file": "template_updates.md"
     }
   ]
 }
