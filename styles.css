@@ -1198,9 +1198,15 @@ body:has(.reader-section.is-open) .floating-photo {
   导航变成上下排列，Hero 从左右两栏变成单列。
 */
 @media (max-width: 900px) {
+  :root {
+    --radius-shell: 24px;
+    --radius-control: 18px;
+  }
+
   .site-header {
     align-items: stretch;
     flex-direction: column;
+    gap: 12px;
   }
 
   .primary-nav {
@@ -1216,7 +1222,8 @@ body:has(.reader-section.is-open) .floating-photo {
   .hero {
     grid-template-columns: 1fr;
     min-height: auto;
-    padding-top: 62px;
+    gap: 38px;
+    padding-top: 56px;
   }
 
   .hero-visual {
@@ -1234,6 +1241,10 @@ body:has(.reader-section.is-open) .floating-photo {
   .gallery-grid {
     grid-template-columns: 1fr 1fr;
   }
+
+  .reader-panel {
+    max-width: 820px;
+  }
 }
 
 /*
@@ -1241,52 +1252,277 @@ body:has(.reader-section.is-open) .floating-photo {
   进一步缩小标题、隐藏自定义光标、相册变单列。
 */
 @media (max-width: 640px) {
+  :root {
+    --radius-shell: 20px;
+    --radius-control: 16px;
+  }
+
+  html {
+    scrollbar-gutter: auto;
+  }
+
   .page-shell {
-    width: min(100% - 24px, 1180px);
+    width: min(100% - 20px, 1180px);
   }
 
   .cursor-dot {
     display: none;
   }
 
+  .site-header {
+    position: sticky;
+    top: 10px;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 22px;
+  }
+
+  .brand {
+    justify-content: center;
+    min-height: 34px;
+    font-size: 15px;
+  }
+
+  .brand-mark {
+    width: 26px;
+  }
+
+  .primary-nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 2px 2px 4px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .primary-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .primary-nav a {
+    flex: 0 0 auto;
+    min-width: max-content;
+    min-height: 36px;
+    padding: 8px 12px;
+    scroll-snap-align: start;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .primary-nav a:hover,
+  .primary-nav a.is-active {
+    transform: none;
+  }
+
+  .eyebrow {
+    margin-bottom: 10px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+  }
+
   h1 {
-    font-size: clamp(44px, 15vw, 64px);
+    max-width: 10em;
+    margin-bottom: 18px;
+    font-size: clamp(40px, 12.5vw, 54px);
+    line-height: 1.03;
+  }
+
+  h2 {
+    font-size: clamp(30px, 10vw, 42px);
+  }
+
+  h3 {
+    font-size: 20px;
+  }
+
+  .hero-text {
+    max-width: 30em;
+    font-size: 16px;
+    line-height: 1.75;
   }
 
   .hero {
-    gap: 28px;
-    padding-bottom: 58px;
+    gap: 24px;
+    padding: 42px 0 40px;
+  }
+
+  .hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 28px;
+  }
+
+  .button {
+    width: 100%;
+    min-height: 46px;
+    padding-inline: 16px;
+    font-size: 15px;
+  }
+
+  .button:hover {
+    transform: none;
   }
 
   .hero-visual {
-    min-height: 360px;
+    overflow: hidden;
+    min-height: 300px;
   }
 
   .orbit-one {
-    width: 320px;
+    width: 280px;
   }
 
   .orbit-two {
-    width: 390px;
+    width: 338px;
   }
 
   .journal-card {
-    top: 64px;
+    top: 40px;
+    z-index: 2;
+    width: min(292px, calc(100vw - 56px));
+    padding: 20px;
+    transform: translateX(-50%) rotateY(-8deg) rotateX(7deg);
+  }
+
+  .floating-photo {
+    z-index: 1;
+  }
+
+  .journal-card strong {
+    margin: 14px 0 8px;
+    font-size: 23px;
+  }
+
+  .journal-card p {
+    font-size: 14px;
+    line-height: 1.65;
   }
 
   .photo-one {
-    right: 0;
-    width: 150px;
+    right: 4px;
+    bottom: 34px;
+    width: 118px;
   }
 
   .photo-two {
-    left: 0;
-    width: 130px;
+    left: 4px;
+    bottom: 58px;
+    width: 102px;
+  }
+
+  .content-section {
+    padding: 54px 0;
+    scroll-margin-top: 112px;
+  }
+
+  #notes {
+    padding-top: 26px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+
+  .section-heading .eyebrow {
+    text-align: left;
+  }
+
+  .note-filters {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    margin: -4px 0 16px;
+    padding: 0 2px 4px;
+    scrollbar-width: none;
+  }
+
+  .note-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .note-filters button {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding-inline: 13px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .note-grid,
+  .repo-grid,
+  .update-grid,
+  .gallery-grid {
+    gap: 12px;
+    padding: 0;
+  }
+
+  .note-card,
+  .repo-card,
+  .update-card {
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .repo-card span {
+    margin-bottom: 24px;
+  }
+
+  .card-meta {
+    margin-bottom: 14px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+  }
+
+  .content-preview {
+    gap: 8px;
+    max-height: 12.5em;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 34px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 34px), transparent 100%);
+  }
+
+  .repo-card .content-preview {
+    max-height: 10.5em;
+  }
+
+  .update-card .content-preview {
+    max-height: 11.5em;
+  }
+
+  .note-card p,
+  .content-preview,
+  .update-card p,
+  .profile-panel p {
+    line-height: 1.68;
+  }
+
+  .repo-card:hover,
+  .note-card:hover,
+  .update-card:hover,
+  .gallery-item:hover {
+    transform: none;
   }
 
   .gallery-grid {
-    grid-auto-rows: 220px;
+    grid-auto-rows: minmax(210px, 56vw);
     grid-template-columns: 1fr;
+  }
+
+  .gallery-item figcaption {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    padding: 11px 12px;
+  }
+
+  .gallery-item figcaption strong {
+    font-size: 16px;
   }
 
   .note-grid,
@@ -1299,6 +1535,119 @@ body:has(.reader-section.is-open) .floating-photo {
   .gallery-item.wide {
     grid-column: auto;
     grid-row: auto;
+  }
+
+  .profile-section {
+    padding-bottom: 76px;
+  }
+
+  .profile-panel {
+    gap: 22px;
+    padding: 22px;
+  }
+
+  .profile-stats {
+    gap: 10px;
+  }
+
+  .profile-stats span {
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .profile-stats strong {
+    font-size: 28px;
+  }
+
+  .updates-section {
+    padding-top: 30px;
+    padding-bottom: 88px;
+  }
+
+  .reader-section {
+    padding: 12px 10px 26px;
+    scroll-margin-top: 0;
+  }
+
+  .reader-panel {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .reader-back {
+    margin-bottom: 20px;
+  }
+
+  .reader-title {
+    margin-bottom: 20px;
+    font-size: clamp(28px, 9vw, 40px);
+    line-height: 1.12;
+  }
+
+  .reader-body {
+    font-size: 16px;
+    line-height: 1.78;
+  }
+
+  .reader-body pre {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .reader-photo {
+    margin: 20px auto;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .page-shell {
+    width: min(100% - 16px, 1180px);
+  }
+
+  .hero {
+    padding-top: 34px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 12vw, 46px);
+  }
+
+  .hero-visual {
+    min-height: 264px;
+  }
+
+  .orbit-one {
+    width: 240px;
+  }
+
+  .orbit-two {
+    width: 296px;
+  }
+
+  .journal-card {
+    top: 28px;
+    width: min(268px, calc(100vw - 44px));
+    padding: 18px;
+  }
+
+  .photo-one {
+    width: 96px;
+  }
+
+  .photo-two {
+    width: 84px;
+  }
+
+  .note-card,
+  .repo-card,
+  .update-card,
+  .profile-panel {
+    padding: 18px;
+  }
+
+  .reader-panel {
+    padding: 18px;
   }
 }
 
