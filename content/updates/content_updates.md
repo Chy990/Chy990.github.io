@@ -1,5 +1,9 @@
 # 内容更新历史
 
+### 2026-07-10
+
+- 新增相册《吉林》
+
 ### 2026-07-07
 
 - 新增仓库项目《USYD Assessment Extractor》，用于提取和整理 University of Sydney unit assessment 信息。

@@ -17,7 +17,7 @@ const ctx = canvas.getContext("2d");
 // 自定义鼠标光圈，以及顶部导航链接。
 const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260710-01";
+const CONTENT_VERSION = "20260710-02";
 
 // canvas 当前尺寸和背景粒子数组。
 let width = 0;
@@ -279,7 +279,7 @@ function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
 
 // 卡片本身已经显示 title，所以预览时去掉 Markdown 第一行 # 标题，避免重复。
 function stripFirstHeading(markdown) {
-  return markdown.replace(/^#\s+.*(?:\n|$)/, "");
+  return markdown.replace(/^\s*#\s+.*(?:\n|$)/, "");
 }
 
 function stripFrontmatter(markdown) {

@@ -128,13 +128,13 @@ def update_entry(path: Path) -> dict[str, str]:
 
 def gallery_entry(path: Path) -> dict[str, str]:
     """Build one gallery record from a Markdown album file."""
-    match = re.match(r"^(\d{4})_(\d{2})_(\d{2})_(?:trip|album)_(.+)\.md$", path.name)
+    compact_date_match = re.match(r"^(\d{4})(\d{2})(\d{2}).*\.md$", path.name)
     frontmatter = read_frontmatter(path)
     heading = read_first_heading(path)
 
     date = frontmatter.get("date", "0000-00-00")
-    if match:
-        year, month, day, _slug = match.groups()
+    if compact_date_match:
+        year, month, day = compact_date_match.groups()
         date = frontmatter.get("date", f"{year}-{month}-{day}")
 
     return {
@@ -166,7 +166,7 @@ def collect() -> dict[str, list[dict[str, str]]]:
         (
             gallery_entry(path)
             for path in (CONTENT / "gallery").glob("*.md")
-            if re.match(r"^\d{4}_\d{2}_\d{2}_(?:trip|album)_.+\.md$", path.name)
+            if path.name != "README.md" and (CONTENT / "gallery" / path.stem).is_dir()
         ),
         key=lambda item: (item["date"], item["file"]),
         reverse=True,

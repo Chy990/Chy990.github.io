@@ -830,14 +830,15 @@ h3 {
   padding: 13px 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control); /* 改相册左下角标签圆角：修改 --radius-control。 */
-  background: var(--caption-bg);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 18px 42px rgba(37, 50, 76, 0.14);
+  backdrop-filter: blur(18px) saturate(1.2);
 }
 
 .gallery-item figcaption span,
 .gallery-item figcaption small {
   display: block;
-  color: rgba(244, 247, 251, 0.72);
+  color: rgba(18, 24, 38, 0.78);
   font-size: 12px;
   font-weight: 800;
 }
@@ -845,7 +846,7 @@ h3 {
 .gallery-item figcaption strong {
   display: block;
   margin: 5px 0 7px;
-  color: #ffffff;
+  color: #121826;
   font-size: 18px;
   font-weight: 950;
 }

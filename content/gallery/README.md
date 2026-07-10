@@ -1,41 +1,40 @@
 # 相册
 
-每个相册使用一篇 Markdown 记录，图片放在相册自己的文件夹里。
+每个相册使用一篇 Markdown 记录，图片放在同名文件夹里。
 
 推荐结构：
 
 ```text
 content/gallery/
-  2026_07_07_trip_mountain_weekend.md
-  mountain-weekend/
+  20260621吉林.md
+  20260621吉林/
     cover.jpg
-    night-sky.jpg
-    forest-light.jpg
+    field-wind.jpg
+    field-cat.jpg
 ```
 
-Markdown 文件名需要使用：
+文件名规则：
 
-```text
-yyyy_mm_dd_trip_album-name.md
-```
+- `相册名.md`
+- `相册名/`
 
-也可以把 `trip` 换成 `album`。
+两者名字需要一致。比如 `20260621吉林.md` 对应 `20260621吉林/`。
 
 Markdown 开头写相册信息：
 
 ```md
 ---
-date: 2026-07-07
-place: Mountain Weekend
-cover: mountain-weekend/cover.jpg
+date: 2026-06-21
+place: 吉林
+cover: 20260621吉林/flight-home.jpg
 ---
 ```
 
 插入图片：
 
 ```md
-![山间夜空|portrait](mountain-weekend/night-sky.jpg)
-![林间光线|wide](mountain-weekend/forest-light.jpg)
+![飞回东北|wide](20260621吉林/flight-home.jpg)
+![地里的小猫|portrait](20260621吉林/field-cat.jpg)
 ```
 
 图片标记可以使用 `wide`、`portrait` 或 `square`，用来调整详情页里的展示宽度。

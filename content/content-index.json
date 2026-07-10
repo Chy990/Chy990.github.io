@@ -84,14 +84,21 @@
       "place": "Coastal Evening",
       "cover": "coastal-evening/cover.jpg",
       "title": "海边傍晚",
-      "file": "2026_07_08_trip_coastal_evening.md"
+      "file": "coastal-evening.md"
     },
     {
       "date": "2026-07-07",
       "place": "Mountain Weekend",
       "cover": "mountain-weekend/cover.jpg",
       "title": "山间周末",
-      "file": "2026_07_07_trip_mountain_weekend.md"
+      "file": "mountain-weekend.md"
+    },
+    {
+      "date": "2026-06-21",
+      "place": "吉林",
+      "cover": "20260621吉林/flight-home.jpg",
+      "title": "吉林",
+      "file": "20260621吉林.md"
     }
   ],
   "updates": [
