@@ -38,7 +38,9 @@
   --gold: #b57900;
   --green: #1fa66d;
   --glow-cyan: rgba(0, 158, 195, 0.16);
+  --glow-cyan-soft: rgba(0, 158, 195, 0.07);
   --glow-rose: rgba(216, 73, 135, 0.13);
+  --glow-rose-soft: rgba(216, 73, 135, 0.055);
   --grid-line: rgba(42, 56, 76, 0.07);
   --caption-bg: rgba(255, 255, 255, 0.72);
   --shadow: 0 24px 70px rgba(37, 50, 76, 0.16);
@@ -67,7 +69,9 @@
     --gold: #ffd166;
     --green: #89f7b7;
     --glow-cyan: rgba(120, 240, 255, 0.16);
+    --glow-cyan-soft: rgba(120, 240, 255, 0.07);
     --glow-rose: rgba(255, 111, 174, 0.18);
+    --glow-rose-soft: rgba(255, 111, 174, 0.07);
     --grid-line: rgba(255, 255, 255, 0.035);
     --caption-bg: rgba(9, 10, 18, 0.58);
     --shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
@@ -94,9 +98,11 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   background:
-    radial-gradient(circle at 15% 20%, var(--glow-cyan), transparent 20vw),
-    radial-gradient(circle at 86% 10%, var(--glow-rose), transparent 18vw),
+    radial-gradient(ellipse 42vw 30vw at 40% 44%, var(--glow-cyan-soft) 0%, transparent 72%),
+    radial-gradient(ellipse 38vw 44vw at 92% 24%, var(--glow-rose) 0%, var(--glow-rose-soft) 42%, transparent 78%),
     var(--bg);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--text);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -349,19 +355,23 @@ h3 {
     border-color 220ms ease;
 }
 
-/* 按钮 hover 时明显上浮并轻微放大。 */
+/* 按钮 hover 时只轻微上浮和变亮，不使用外阴影，避免出现矩形阴影边界。 */
 .button:hover {
   border-color: rgba(0, 158, 195, 0.38);
-  box-shadow: 0 20px 50px rgba(0, 158, 195, 0.18);
-  transform: translateY(-6px) scale(1.04);
+  box-shadow: none;
+  transform: translateY(-4px);
 }
 
-/* 主按钮：渐变背景，用于“开始阅读”。 */
+/* 主按钮：默认不再做彩色强调，只保留比普通按钮略强的文字权重。 */
 .button.primary {
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--cyan), var(--green));
-  color: #041015;
-  box-shadow: 0 18px 48px rgba(120, 240, 255, 0.24);
+  background: var(--glass);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.button.primary:hover {
+  background: var(--glass-strong);
+  box-shadow: none;
 }
 
 /* 次按钮：玻璃背景，用于“看相册”。 */
