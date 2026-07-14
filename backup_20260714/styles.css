@@ -114,61 +114,6 @@ body.is-reader-open {
 }
 
 /*
-  低功耗模式：
-  关闭持续动画、重模糊和大面积 hover 合成效果，让 GitHub Pages 访问端更省电。
-  script.js 会默认给 body 加上 is-low-power。
-*/
-body.is-low-power .brand-mark,
-body.is-low-power .orbit,
-body.is-low-power .journal-card,
-body.is-low-power .floating-photo {
-  animation: none;
-}
-
-body.is-low-power .site-header,
-body.is-low-power .journal-card,
-body.is-low-power .repo-card,
-body.is-low-power .note-card,
-body.is-low-power .update-card,
-body.is-low-power .gallery-item figcaption,
-body.is-low-power .profile-panel {
-  backdrop-filter: none;
-}
-
-body.is-low-power .site-header,
-body.is-low-power .journal-card,
-body.is-low-power .floating-photo,
-body.is-low-power .gallery-item,
-body.is-low-power .profile-panel,
-body.is-low-power .reader-panel {
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
-}
-
-body.is-low-power .repo-card::before,
-body.is-low-power .note-card::before,
-body.is-low-power .update-card::before {
-  display: none;
-}
-
-body.is-low-power .repo-card:hover,
-body.is-low-power .note-card:hover,
-body.is-low-power .update-card:hover,
-body.is-low-power .gallery-item:hover {
-  transform: translateY(-3px);
-  box-shadow: none;
-}
-
-body.is-low-power .gallery-item img,
-body.is-low-power .gallery-item:hover img {
-  filter: none;
-  transform: none;
-}
-
-body.is-low-power [data-reveal] {
-  transition-duration: 360ms;
-}
-
-/*
   body::before 原来用于背景网格。
   现在关掉它，背景只保留主题底色和柔和光晕，不再显示方格线。
 */

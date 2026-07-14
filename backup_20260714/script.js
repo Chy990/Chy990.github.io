@@ -17,8 +17,7 @@ const ctx = canvas.getContext("2d");
 // 自定义鼠标光圈，以及顶部导航链接。
 const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260714-06";
-const LOW_POWER_MODE = true;
+const CONTENT_VERSION = "20260714-05";
 
 // canvas 当前尺寸和背景粒子数组。
 let width = 0;
@@ -292,7 +291,7 @@ function stripFrontmatter(markdown) {
   devicePixelRatio 用来让高清屏上的粒子不模糊，但最多限制到 2，避免太耗性能。
 */
 function resizeCanvas() {
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, LOW_POWER_MODE ? 1.25 : 2);
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
   width = window.innerWidth;
   height = window.innerHeight;
   canvas.width = Math.floor(width * pixelRatio);
@@ -305,11 +304,8 @@ function resizeCanvas() {
   cachedGlowGradient = null;
   lastGlowMouse = { x: -1000, y: -1000 };
 
-  // 根据屏幕面积决定粒子数量。低功耗模式下减少粒子和高清倍率，降低 CPU/GPU 压力。
-  const maxStars = LOW_POWER_MODE ? 90 : 180;
-  const minStars = LOW_POWER_MODE ? 42 : 90;
-  const density = LOW_POWER_MODE ? 0.000055 : 0.00013;
-  const count = Math.floor(Math.min(maxStars, Math.max(minStars, width * height * density)));
+  // 根据屏幕面积决定粒子数量：屏幕越大粒子越多，但有上下限。
+  const count = Math.floor(Math.min(180, Math.max(90, width * height * 0.00013)));
   stars = Array.from({ length: count }, () => ({
     x: Math.random() * width,
     y: Math.random() * height,
@@ -337,7 +333,6 @@ function drawStarfield() {
     return;
   }
 
-  const shouldAnimate = !LOW_POWER_MODE && !prefersReducedMotion();
   const theme = getThemeColors();
   ctx.clearRect(0, 0, width, height);
 
@@ -358,19 +353,17 @@ function drawStarfield() {
 
   // 逐个更新并绘制粒子。
   for (const star of stars) {
-    const pullX = shouldAnimate ? (mouse.x - width / 2) * star.z * 0.014 : 0;
-    const pullY = shouldAnimate ? (mouse.y - height / 2) * star.z * 0.014 : 0;
+    // pullX/pullY 让粒子受到鼠标方向的轻微牵引，看起来更有空间感。
+    const pullX = (mouse.x - width / 2) * star.z * 0.014;
+    const pullY = (mouse.y - height / 2) * star.z * 0.014;
+    star.x += star.vx + pullX * 0.006;
+    star.y += star.vy + pullY * 0.006;
 
-    if (shouldAnimate) {
-      star.x += star.vx + pullX * 0.006;
-      star.y += star.vy + pullY * 0.006;
-
-      // 粒子飞出屏幕后，从另一侧回到画面里，保证背景一直有点。
-      if (star.x < -20) star.x = width + 20;
-      if (star.x > width + 20) star.x = -20;
-      if (star.y < -20) star.y = height + 20;
-      if (star.y > height + 20) star.y = -20;
-    }
+    // 粒子飞出屏幕后，从另一侧回到画面里，保证背景一直有点。
+    if (star.x < -20) star.x = width + 20;
+    if (star.x > width + 20) star.x = -20;
+    if (star.y < -20) star.y = height + 20;
+    if (star.y > height + 20) star.y = -20;
 
     ctx.beginPath();
     ctx.arc(star.x + pullX, star.y + pullY, star.r * star.z, 0, Math.PI * 2);
@@ -378,18 +371,11 @@ function drawStarfield() {
     ctx.fill();
   }
 
-  if (shouldAnimate) {
-    scheduleStarfield();
-  }
+  scheduleStarfield();
 }
 
 function scheduleStarfield() {
   if (starfieldFrameId || starfieldTimeoutId || document.hidden || isReaderOpen()) return;
-
-  if (LOW_POWER_MODE || prefersReducedMotion()) {
-    starfieldFrameId = requestAnimationFrame(drawStarfield);
-    return;
-  }
 
   const idleFor = performance.now() - lastPointerActivityAt;
   if (idleFor > 3000) {
@@ -1042,14 +1028,9 @@ let glowTicking = false;
 let latestGlowEvent = null;
 
 document.addEventListener("pointermove", (event) => {
-  if (!LOW_POWER_MODE) {
-    lastPointerActivityAt = performance.now();
-    scheduleStarfield();
-  }
+  lastPointerActivityAt = performance.now();
+  scheduleStarfield();
   mouse = { x: event.clientX, y: event.clientY };
-
-  if (LOW_POWER_MODE) return;
-
   latestGlowEvent = event;
 
   if (glowTicking) return;
@@ -1109,10 +1090,7 @@ document.addEventListener("click", (event) => {
 });
 
 // 窗口尺寸变化时重设 canvas；页面滚动时更新导航高亮。
-window.addEventListener("resize", () => {
-  resizeCanvas();
-  scheduleStarfield();
-});
+window.addEventListener("resize", resizeCanvas);
 window.addEventListener("scroll", handlePageScroll, { passive: true });
 window.addEventListener("hashchange", handleRoute);
 window.addEventListener("popstate", handleRoute);
@@ -1134,7 +1112,6 @@ document.addEventListener("visibilitychange", () => {
 */
 prepareReveal();
 prepareHover();
-document.body.classList.toggle("is-low-power", LOW_POWER_MODE);
 resizeCanvas();
 scheduleStarfield();
 animateCursor();
