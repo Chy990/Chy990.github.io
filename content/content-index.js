@@ -81,18 +81,11 @@ window.BLOG_CONTENT = {
   ],
   "gallery": [
     {
-      "date": "2026-07-08",
-      "place": "Coastal Evening",
-      "cover": "coastal-evening/cover.jpg",
-      "title": "海边傍晚",
-      "file": "coastal-evening.md"
-    },
-    {
-      "date": "2026-07-07",
-      "place": "Mountain Weekend",
-      "cover": "mountain-weekend/cover.jpg",
-      "title": "山间周末",
-      "file": "mountain-weekend.md"
+      "date": "2026-07-15",
+      "place": "汕头",
+      "cover": "20260715汕头/shantou1.jpg",
+      "title": "汕头",
+      "file": "20260715汕头.md"
     },
     {
       "date": "2026-06-21",
@@ -100,6 +93,13 @@ window.BLOG_CONTENT = {
       "cover": "20260621吉林/flight-home.jpg",
       "title": "吉林",
       "file": "20260621吉林.md"
+    },
+    {
+      "date": "2026-03-20",
+      "place": "墨尔本",
+      "cover": "20260320墨尔本/mel1.jpg",
+      "title": "墨尔本",
+      "file": "20260320墨尔本.md"
     }
   ],
   "updates": [
