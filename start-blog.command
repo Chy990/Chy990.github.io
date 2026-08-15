@@ -19,6 +19,13 @@ python3 generate-content-index.py || {
   exit 1
 }
 
+echo "Refreshing gallery thumbnails..."
+python3 generate-gallery-thumbnails.py || {
+  echo "Failed to refresh gallery thumbnails."
+  read "?Press Enter to close..."
+  exit 1
+}
+
 if lsof -nP -iTCP:${PORT} -sTCP:LISTEN >/dev/null 2>&1; then
   echo "Blog server is already running."
   echo "Opening ${URL}"

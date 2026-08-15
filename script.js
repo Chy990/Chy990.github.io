@@ -17,7 +17,7 @@ const ctx = canvas.getContext("2d");
 // 自定义鼠标光圈，以及顶部导航链接。
 const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260815-03";
+const CONTENT_VERSION = "20260815-04";
 const LOW_POWER_MODE = true;
 
 // canvas 当前尺寸和背景粒子数组。
@@ -96,6 +96,15 @@ function resolveContentImageSrc(src, imageBasePath = "") {
   }
 
   return `${imageBasePath}${src}`;
+}
+
+function galleryThumbnailSrc(src) {
+  if (!src.startsWith("./content/gallery/")) return src;
+  if (src.startsWith("./content/gallery/_thumbs/")) return src;
+
+  return src
+    .replace("./content/gallery/", "./content/gallery/_thumbs/")
+    .replace(/\.(jpe?g|png)$/i, ".jpg");
 }
 
 function renderInlineMarkdown(value, { allowLinks = true } = {}) {
@@ -263,7 +272,8 @@ function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
       const layoutClass = ["wide", "portrait", "square"].includes(layoutHint) ? ` is-${layoutHint}` : "";
       const imageSrc = resolveContentImageSrc(src, imageBasePath);
       const safeImageSrc = escapeHtml(imageSrc);
-      html += `<figure class="reader-photo${layoutClass} is-zoomable"><button class="reader-photo-button" type="button" data-lightbox-src="${safeImageSrc}" data-lightbox-alt="${escapeHtml(altText)}" aria-label="查看原图：${escapeHtml(altText || "图片")}"><img src="${safeImageSrc}" alt="${escapeHtml(altText)}" loading="lazy" /></button></figure>`;
+      const previewSrc = galleryThumbnailSrc(imageSrc);
+      html += `<figure class="reader-photo${layoutClass} is-zoomable"><button class="reader-photo-button" type="button" data-lightbox-src="${safeImageSrc}" data-lightbox-alt="${escapeHtml(altText)}" aria-label="查看原图：${escapeHtml(altText || "图片")}"><img src="${escapeHtml(previewSrc)}" data-fallback-src="${safeImageSrc}" alt="${escapeHtml(altText)}" loading="lazy" /></button></figure>`;
       continue;
     }
 
@@ -669,10 +679,12 @@ async function renderGallery() {
     entries.map(async (entry) => {
       const markdown = stripFrontmatter(await readText(`./content/gallery/${entry.file}`));
       const cover = entry.cover || "";
+      const coverSrc = cover ? `./content/gallery/${cover}` : "";
+      const coverPreviewSrc = coverSrc ? galleryThumbnailSrc(coverSrc) : "";
       return `
         <a class="content-link gallery-item" href="${detailHref("gallery", entry.file)}" data-reveal>
           <figure>
-            ${cover ? `<img src="./content/gallery/${escapeHtml(cover)}" alt="${escapeHtml(entry.title)}" />` : ""}
+            ${cover ? `<img src="${escapeHtml(coverPreviewSrc)}" data-fallback-src="${escapeHtml(coverSrc)}" alt="${escapeHtml(entry.title)}" loading="lazy" />` : ""}
             <figcaption>
               <span>${escapeHtml(entry.date)}${entry.place ? ` / ${escapeHtml(entry.place)}` : ""}</span>
               <strong>${escapeHtml(entry.title)}</strong>
@@ -1161,6 +1173,19 @@ document.addEventListener("click", (event) => {
     handleRoute();
   }
 });
+
+document.addEventListener(
+  "error",
+  (event) => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement)) return;
+    const fallbackSrc = image.dataset.fallbackSrc;
+    if (!fallbackSrc || image.src.endsWith(fallbackSrc)) return;
+    image.src = fallbackSrc;
+    delete image.dataset.fallbackSrc;
+  },
+  true
+);
 
 // 窗口尺寸变化时重设 canvas；页面滚动时更新导航高亮。
 window.addEventListener("resize", () => {
