@@ -12,10 +12,10 @@
     <link rel="icon" href="./logo-favicon.png" type="image/png" />
     <link rel="preconnect" href="https://images.unsplash.com" />
     <!--
-      ?v=20260714-06 是开发期的缓存版本号。
+      ?v=20260815-03 是开发期的缓存版本号。
       如果你改了 styles.css / script.js 但刷新后没变化，可以把这里和底部 script 的 v 改大一点。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20260714-06" />
+    <link rel="stylesheet" href="./styles.css?v=20260815-03" />
   </head>
   <body>
     <!--
@@ -47,7 +47,7 @@
         <nav class="primary-nav" aria-label="一级菜单">
           <a href="#notes" data-nav>笔记</a>
           <a href="#repos" data-nav>仓库</a>
-          <a href="#gallery" data-nav>相册（暂未开放）</a>
+          <a href="#gallery" data-nav>相册</a>
           <a href="#profile" data-nav>个人</a>
         </nav>
       </header>
@@ -68,7 +68,7 @@
             <div class="hero-actions">
               <a class="button primary" href="#notes">开始阅读</a>
               <a class="button ghost" href="#repos">看仓库</a>
-              <a class="button ghost" href="#gallery">看相册（暂未开放）</a>
+              <a class="button ghost" href="#gallery">看相册</a>
             </div>
           </div>
 
@@ -139,7 +139,7 @@
         -->
         <section id="gallery" class="content-section">
           <div class="section-heading" data-reveal>
-            <h2>相册（暂未开放）</h2>
+            <h2>相册</h2>
             <p class="eyebrow">Gallery</p>
           </div>
           <div class="gallery-grid">
@@ -147,42 +147,46 @@
           </div>
         </section>
 
-        <!--
-          个人介绍区域。
-          目前这里是固定写在 HTML 里的文字和统计数据；
-          如果以后想让它也从 Markdown 读取，可以在 script.js 增加类似 renderProfile() 的函数。
-        -->
-        <section id="profile" class="content-section profile-section">
-          <div class="profile-panel" data-reveal>
-            <div>
-              <p class="eyebrow">Profile</p>
+        <div class="bottom-layout">
+          <!--
+            个人介绍区域。
+            目前这里是固定写在 HTML 里的文字和统计数据；
+            如果以后想让它也从 Markdown 读取，可以在 script.js 增加类似 renderProfile() 的函数。
+          -->
+          <section id="profile" class="profile-section bottom-pane">
+            <div class="section-heading" data-reveal>
               <h2>个人</h2>
-              <p>
-                这个实验台是用于记录笔记、仓库和一些照片的平台。
-              </p>
+              <p class="eyebrow">Profile</p>
             </div>
-            <div class="profile-stats">
-              <span><strong data-stat="repos">0</strong> 个项目</span>
-              <span><strong data-stat="notes">0</strong> 则笔记</span>
-              <span><strong data-stat="gallery">0</strong> 个相册</span>
+            <div class="profile-panel" data-reveal>
+              <div>
+                <p>
+                  该实验台是用于记录笔记、仓库和一些照片的平台。本平台将会持续更新，并且不断的做各种优化，增强用户的使用和交互体验。
+                </p>
+              </div>
+              <div class="profile-stats">
+                <span><strong data-stat="repos">0</strong> 个项目</span>
+                <span><strong data-stat="notes">0</strong> 则笔记</span>
+                <span><strong data-stat="gallery">0</strong> 个相册</span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!--
-          最近更新区域。
-          内容来源是 content/updates 文件夹里的 Markdown，
-          包括内容更新历史和模板更新历史。
-        -->
-        <section id="updates" class="content-section updates-section">
-          <div class="section-heading" data-reveal>
-            <h2>最近更新</h2>
-            <p class="eyebrow">Updates</p>
-          </div>
-          <div class="update-grid">
-            <div class="loading-row" data-reveal>正在读取更新历史...</div>
-          </div>
-        </section>
+          <!--
+            最近更新区域。
+            内容来源是 content/updates 文件夹里的 Markdown，
+            包括内容更新历史和模板更新历史。
+          -->
+          <section id="updates" class="updates-section bottom-pane">
+            <div class="section-heading" data-reveal>
+              <h2>最近更新</h2>
+              <p class="eyebrow">Updates</p>
+            </div>
+            <div class="update-grid">
+              <div class="loading-row" data-reveal>正在读取更新历史...</div>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
 
@@ -190,9 +194,9 @@
       content-index.js 是 generate-content-index.py 自动生成的文件。
       你平时只需要增删 notes/repos/gallery 里的文件，不需要手动编辑这个清单。
     -->
-    <script src="./content/content-index.js?v=20260714-06"></script>
+    <script src="./content/content-index.js?v=20260815-03"></script>
 
     <!-- script.js 放在 body 末尾，确保上面的 DOM 元素已经存在，JS 才开始查找和操作它们。 -->
-    <script src="./script.js?v=20260714-06"></script>
+    <script src="./script.js?v=20260815-03"></script>
   </body>
 </html>

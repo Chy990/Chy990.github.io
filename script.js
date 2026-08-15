@@ -17,7 +17,7 @@ const ctx = canvas.getContext("2d");
 // 自定义鼠标光圈，以及顶部导航链接。
 const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260714-06";
+const CONTENT_VERSION = "20260815-03";
 const LOW_POWER_MODE = true;
 
 // canvas 当前尺寸和背景粒子数组。
@@ -261,7 +261,9 @@ function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
       const [, alt, src] = imageMatch;
       const [altText, layoutHint = ""] = alt.split("|").map((part) => part.trim());
       const layoutClass = ["wide", "portrait", "square"].includes(layoutHint) ? ` is-${layoutHint}` : "";
-      html += `<figure class="reader-photo${layoutClass}"><img src="${escapeHtml(resolveContentImageSrc(src, imageBasePath))}" alt="${escapeHtml(altText)}" /></figure>`;
+      const imageSrc = resolveContentImageSrc(src, imageBasePath);
+      const safeImageSrc = escapeHtml(imageSrc);
+      html += `<figure class="reader-photo${layoutClass} is-zoomable"><button class="reader-photo-button" type="button" data-lightbox-src="${safeImageSrc}" data-lightbox-alt="${escapeHtml(altText)}" aria-label="查看原图：${escapeHtml(altText || "图片")}"><img src="${safeImageSrc}" alt="${escapeHtml(altText)}" loading="lazy" /></button></figure>`;
       continue;
     }
 
@@ -747,8 +749,47 @@ function hideReader() {
   reader.classList.remove("is-opening-from-card");
   reader.classList.remove("is-open");
   reader.setAttribute("aria-hidden", "true");
+  closeImageLightbox();
   document.body.classList.remove("is-reader-open");
   resumeStarfield();
+}
+
+function getImageLightbox() {
+  let lightbox = document.querySelector(".image-lightbox");
+  if (lightbox) return lightbox;
+
+  lightbox = document.createElement("div");
+  lightbox.className = "image-lightbox";
+  lightbox.setAttribute("aria-hidden", "true");
+  lightbox.innerHTML = `
+    <button class="image-lightbox__close" type="button" aria-label="关闭原图查看">×</button>
+    <img class="image-lightbox__image" alt="" />
+  `;
+  document.body.append(lightbox);
+  return lightbox;
+}
+
+function openImageLightbox(src, alt = "") {
+  const lightbox = getImageLightbox();
+  const image = lightbox.querySelector(".image-lightbox__image");
+  image.src = src;
+  image.alt = alt;
+  lightbox.classList.add("is-open");
+  lightbox.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-lightbox-open");
+  lightbox.querySelector(".image-lightbox__close").focus({ preventScroll: true });
+}
+
+function closeImageLightbox() {
+  const lightbox = document.querySelector(".image-lightbox");
+  if (!lightbox || !lightbox.classList.contains("is-open")) return;
+
+  lightbox.classList.remove("is-open");
+  lightbox.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-lightbox-open");
+  const image = lightbox.querySelector(".image-lightbox__image");
+  image.removeAttribute("src");
+  image.alt = "";
 }
 
 async function openMarkdownDetail(kind, file) {
@@ -1070,6 +1111,19 @@ document.addEventListener("pointermove", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  const imageButton = event.target.closest("[data-lightbox-src]");
+  if (imageButton) {
+    event.preventDefault();
+    openImageLightbox(imageButton.getAttribute("data-lightbox-src"), imageButton.getAttribute("data-lightbox-alt") || "");
+    return;
+  }
+
+  if (event.target.closest(".image-lightbox__close") || event.target.classList.contains("image-lightbox")) {
+    event.preventDefault();
+    closeImageLightbox();
+    return;
+  }
+
   const filterButton = event.target.closest("[data-note-filter]");
   if (filterButton) {
     activeNoteType = filterButton.getAttribute("data-note-filter") || "all";
@@ -1116,6 +1170,11 @@ window.addEventListener("resize", () => {
 window.addEventListener("scroll", handlePageScroll, { passive: true });
 window.addEventListener("hashchange", handleRoute);
 window.addEventListener("popstate", handleRoute);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeImageLightbox();
+  }
+});
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     pauseStarfield();

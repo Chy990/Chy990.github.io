@@ -2,10 +2,10 @@
 window.BLOG_CONTENT = {
   "notes": [
     {
-      "date": "2026-07-02",
+      "date": "2026-08-14",
       "type": "经验",
       "title": "iOS转OPPO笔记",
-      "file": "2026_07_02_经验_ios2oppo.md"
+      "file": "2026_08_14_经验_ios2oppo.md"
     },
     {
       "date": "2026-04-15",
@@ -96,10 +96,10 @@ window.BLOG_CONTENT = {
     },
     {
       "date": "2026-03-20",
-      "place": "墨尔本",
-      "cover": "20260320墨尔本/mel1.jpg",
-      "title": "墨尔本",
-      "file": "20260320墨尔本.md"
+      "place": "维洲",
+      "cover": "20260320维洲/mel1.jpg",
+      "title": "维洲",
+      "file": "20260320维洲.md"
     }
   ],
   "updates": [

@@ -113,6 +113,10 @@ body.is-reader-open {
   overflow: hidden;
 }
 
+body.is-lightbox-open {
+  overflow: hidden;
+}
+
 /*
   低功耗模式：
   关闭持续动画、重模糊和大面积 hover 合成效果，让 GitHub Pages 访问端更省电。
@@ -784,10 +788,22 @@ h3 {
     box-shadow 260ms ease;
 }
 
-/* 最近更新区域放在主页最底部，展示内容更新和模板更新历史入口。 */
-.updates-section {
-  padding-top: 54px;
-  padding-bottom: 140px;
+/* 底部把个人介绍和最近更新并排展示，减少页面纵向占用。 */
+.bottom-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+  gap: 20px;
+  align-items: stretch;
+  padding: 82px 0 140px;
+}
+
+.bottom-pane {
+  min-width: 0;
+  scroll-margin-top: 120px;
+}
+
+.bottom-layout .section-heading {
+  margin-bottom: 18px;
 }
 
 .update-grid {
@@ -796,6 +812,11 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   padding: 12px;
+}
+
+.bottom-layout .update-grid {
+  grid-auto-rows: 248px;
+  padding: 0;
 }
 
 .update-card {
@@ -807,9 +828,7 @@ h3 {
   padding: 24px;
   border: 1px solid var(--line);
   border-radius: var(--radius-shell);
-  background:
-    linear-gradient(135deg, rgba(0, 158, 195, 0.1), rgba(216, 73, 135, 0.08)),
-    var(--panel);
+  background: var(--panel);
   backdrop-filter: blur(18px);
   transition:
     transform 260ms ease,
@@ -921,11 +940,6 @@ h3 {
   line-height: 1.55;
 }
 
-/* 个人栏目底部多留一些空间。 */
-.profile-section {
-  padding-bottom: 130px;
-}
-
 /* 个人介绍面板：左边简介，右边统计数字。 */
 .profile-panel {
   display: grid;
@@ -935,11 +949,17 @@ h3 {
   padding: clamp(26px, 5vw, 52px);
   border: 1px solid var(--line);
   border-radius: var(--radius-shell); /* 改个人介绍大面板圆角：修改 --radius-shell。 */
-  background:
-    linear-gradient(135deg, rgba(120, 240, 255, 0.12), rgba(255, 111, 174, 0.12)),
-    var(--panel);
+  background: var(--panel);
   box-shadow: var(--shadow);
   backdrop-filter: blur(24px);
+}
+
+.bottom-layout .profile-panel {
+  height: 248px;
+  grid-template-columns: 1fr;
+  align-content: space-between;
+  gap: 18px;
+  padding: 24px;
 }
 
 /* 统计数字区域三列布局。 */
@@ -951,8 +971,8 @@ h3 {
 
 /* 每个统计小块。 */
 .profile-stats span {
-  min-height: 120px;
-  padding: 18px;
+  min-height: 92px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-shell); /* 改个人统计小块圆角：修改 --radius-shell。 */
   background: var(--glass);
@@ -962,9 +982,9 @@ h3 {
 /* 统计数字本身。 */
 .profile-stats strong {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--text);
-  font-size: 34px;
+  font-size: 30px;
 }
 
 /*
@@ -1208,6 +1228,25 @@ body:has(.reader-section.is-open) .floating-photo {
   background: var(--glass);
 }
 
+.reader-photo.is-zoomable {
+  cursor: zoom-in;
+}
+
+.reader-photo-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: zoom-in;
+}
+
+.reader-photo-button:focus-visible {
+  outline: 3px solid var(--cyan);
+  outline-offset: 4px;
+}
+
 .reader-photo img {
   display: block;
   width: auto;
@@ -1231,6 +1270,69 @@ body:has(.reader-section.is-open) .floating-photo {
 
 .reader-photo.is-square {
   max-width: min(100%, 760px);
+}
+
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  visibility: hidden;
+  padding: clamp(14px, 3vw, 34px);
+  background: rgba(0, 0, 0, 0.88);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    visibility 180ms ease;
+}
+
+.image-lightbox.is-open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.image-lightbox__image {
+  width: auto;
+  max-width: calc(100vw - clamp(28px, 6vw, 68px));
+  height: auto;
+  max-height: calc(100vh - clamp(28px, 6vw, 68px));
+  object-fit: contain;
+  border-radius: min(14px, var(--radius-control));
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.42);
+  cursor: zoom-out;
+}
+
+.image-lightbox__close {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(10, 12, 18, 0.7);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    transform 180ms ease,
+    border-color 180ms ease;
+}
+
+.image-lightbox__close:hover,
+.image-lightbox__close:focus-visible {
+  border-color: rgba(255, 255, 255, 0.56);
+  background: rgba(10, 12, 18, 0.92);
+  transform: scale(1.06);
+  outline: none;
 }
 
 /* 品牌圆标旋转动画。 */
@@ -1294,6 +1396,15 @@ body:has(.reader-section.is-open) .floating-photo {
 
   .hero-visual {
     min-height: 430px;
+  }
+
+  .bottom-layout {
+    grid-template-columns: 1fr;
+    gap: 54px;
+  }
+
+  .bottom-layout .profile-panel {
+    height: auto;
   }
 
   .note-grid,
@@ -1597,14 +1708,19 @@ body:has(.reader-section.is-open) .floating-photo {
     grid-auto-rows: auto;
   }
 
+  .bottom-layout .update-grid {
+    grid-auto-rows: auto;
+  }
+
   .gallery-item.tall,
   .gallery-item.wide {
     grid-column: auto;
     grid-row: auto;
   }
 
-  .profile-section {
-    padding-bottom: 76px;
+  .bottom-layout {
+    gap: 40px;
+    padding: 54px 0 88px;
   }
 
   .profile-panel {
@@ -1625,9 +1741,8 @@ body:has(.reader-section.is-open) .floating-photo {
     font-size: 28px;
   }
 
-  .updates-section {
-    padding-top: 30px;
-    padding-bottom: 88px;
+  .bottom-layout .section-heading {
+    margin-bottom: 22px;
   }
 
   .reader-section {
