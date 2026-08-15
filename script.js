@@ -17,7 +17,7 @@ const ctx = canvas.getContext("2d");
 // 自定义鼠标光圈，以及顶部导航链接。
 const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260815-04";
+const CONTENT_VERSION = "20260815-05";
 const LOW_POWER_MODE = true;
 
 // canvas 当前尺寸和背景粒子数组。

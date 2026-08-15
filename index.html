@@ -12,10 +12,10 @@
     <link rel="icon" href="./logo-favicon.png" type="image/png" />
     <link rel="preconnect" href="https://images.unsplash.com" />
     <!--
-      ?v=20260815-04 是开发期的缓存版本号。
+      ?v=20260815-05 是开发期的缓存版本号。
       如果你改了 styles.css / script.js 但刷新后没变化，可以把这里和底部 script 的 v 改大一点。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20260815-04" />
+    <link rel="stylesheet" href="./styles.css?v=20260815-05" />
   </head>
   <body>
     <!--
@@ -40,7 +40,7 @@
         </a>
 
         <!--
-          一级菜单：笔记、仓库、相册、个人。
+          一级菜单：笔记、仓库、相册。
           href="#notes" 这种写法会跳转到页面里 id="notes" 的 section。
           data-nav 会被 script.js 用来判断当前滚动到哪个栏目，并高亮菜单。
         -->
@@ -48,7 +48,6 @@
           <a href="#notes" data-nav>笔记</a>
           <a href="#repos" data-nav>仓库</a>
           <a href="#gallery" data-nav>相册</a>
-          <a href="#profile" data-nav>个人</a>
         </nav>
       </header>
 
@@ -194,9 +193,9 @@
       content-index.js 是 generate-content-index.py 自动生成的文件。
       你平时只需要增删 notes/repos/gallery 里的文件，不需要手动编辑这个清单。
     -->
-    <script src="./content/content-index.js?v=20260815-04"></script>
+    <script src="./content/content-index.js?v=20260815-05"></script>
 
     <!-- script.js 放在 body 末尾，确保上面的 DOM 元素已经存在，JS 才开始查找和操作它们。 -->
-    <script src="./script.js?v=20260815-04"></script>
+    <script src="./script.js?v=20260815-05"></script>
   </body>
 </html>

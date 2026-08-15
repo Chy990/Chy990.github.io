@@ -1379,7 +1379,7 @@ body:has(.reader-section.is-open) .floating-photo {
 
   .primary-nav {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .primary-nav a {
