@@ -1256,6 +1256,10 @@ body:has(.reader-section.is-open) .floating-photo {
   object-fit: contain;
 }
 
+.reader-photo img.is-lightbox-source {
+  visibility: hidden;
+}
+
 .reader-photo.is-wide {
   width: 100%;
 }
@@ -1280,21 +1284,23 @@ body:has(.reader-section.is-open) .floating-photo {
   place-items: center;
   visibility: hidden;
   padding: clamp(14px, 3vw, 34px);
-  background: rgba(0, 0, 0, 0.88);
-  opacity: 0;
   pointer-events: none;
-  transition:
-    opacity 180ms ease,
-    visibility 180ms ease;
 }
 
 .image-lightbox.is-open {
   visibility: visible;
-  opacity: 1;
   pointer-events: auto;
 }
 
+.image-lightbox__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+}
+
 .image-lightbox__image {
+  position: relative;
+  transform-origin: top left;
   width: auto;
   max-width: calc(100vw - clamp(28px, 6vw, 68px));
   height: auto;

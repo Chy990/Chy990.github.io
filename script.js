@@ -47,6 +47,7 @@ let activeNoteType = "all";
 let starfieldFrameId = null;
 let starfieldTimeoutId = null;
 let lastPointerActivityAt = performance.now();
+let imageLightboxSession = null;
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -734,6 +735,7 @@ function updateProfileStats() {
 }
 
 function setReader({ type, title, bodyHtml, backHref }) {
+  closeImageLightbox({ immediate: true });
   const reader = document.querySelector("#reader");
   const shouldMorphOpen = pendingOpenRect && !prefersReducedMotion();
 
@@ -761,7 +763,7 @@ function hideReader() {
   reader.classList.remove("is-opening-from-card");
   reader.classList.remove("is-open");
   reader.setAttribute("aria-hidden", "true");
-  closeImageLightbox();
+  closeImageLightbox({ immediate: true });
   document.body.classList.remove("is-reader-open");
   resumeStarfield();
 }
@@ -774,6 +776,7 @@ function getImageLightbox() {
   lightbox.className = "image-lightbox";
   lightbox.setAttribute("aria-hidden", "true");
   lightbox.innerHTML = `
+    <div class="image-lightbox__backdrop"></div>
     <button class="image-lightbox__close" type="button" aria-label="关闭原图查看">×</button>
     <img class="image-lightbox__image" alt="" />
   `;
@@ -781,27 +784,113 @@ function getImageLightbox() {
   return lightbox;
 }
 
-function openImageLightbox(src, alt = "") {
+// 使用预览图的位置做缩放动画，原图加载完成后再替换，避免等待或闪白。
+function sizeLightboxImage(session) {
+  const padding = parseFloat(getComputedStyle(session.lightbox).paddingTop) * 2;
+  const width = Math.min(window.innerWidth - padding, (window.innerHeight - padding) * session.ratio);
+  session.image.style.width = `${Math.max(1, width)}px`;
+  session.image.style.height = `${Math.max(1, width / session.ratio)}px`;
+}
+
+function lightboxSourceTransform(image, sourceRect) {
+  const rect = image.getBoundingClientRect();
+  return `translate(${sourceRect.left - rect.left}px, ${sourceRect.top - rect.top}px) scale(${sourceRect.width / rect.width}, ${sourceRect.height / rect.height})`;
+}
+
+function animateLightbox(session, frames, duration) {
+  session.animations = frames.map(([element, keyframes]) => element.animate(keyframes, {
+    duration,
+    easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    fill: "both",
+  }));
+  return Promise.all(session.animations.map((animation) => animation.finished.catch(() => {})));
+}
+
+function cancelLightboxAnimations(session) {
+  session.animations.forEach((animation) => animation.cancel());
+  session.animations = [];
+}
+
+function openImageLightbox(src, alt = "", sourceButton = null) {
+  closeImageLightbox({ immediate: true });
   const lightbox = getImageLightbox();
   const image = lightbox.querySelector(".image-lightbox__image");
-  image.src = src;
+  const source = sourceButton?.querySelector("img");
+  const sourceRect = source?.getBoundingClientRect();
+  const hasSource = sourceRect?.width > 0 && sourceRect?.height > 0;
+  const session = {
+    lightbox, image, source, sourceButton,
+    backdrop: lightbox.querySelector(".image-lightbox__backdrop"),
+    closeButton: lightbox.querySelector(".image-lightbox__close"),
+    ratio: source?.naturalWidth ? source.naturalWidth / source.naturalHeight : hasSource ? sourceRect.width / sourceRect.height : 1,
+    animations: [],
+    closing: false,
+  };
+  imageLightboxSession = session;
+  image.src = source?.currentSrc || src;
   image.alt = alt;
+  sizeLightboxImage(session);
   lightbox.classList.add("is-open");
   lightbox.setAttribute("aria-hidden", "false");
   document.body.classList.add("is-lightbox-open");
-  lightbox.querySelector(".image-lightbox__close").focus({ preventScroll: true });
+  source?.classList.add("is-lightbox-source");
+  session.closeButton.focus({ preventScroll: true });
+
+  if (!prefersReducedMotion()) {
+    animateLightbox(session, [
+      [image, [{ transform: hasSource ? lightboxSourceTransform(image, sourceRect) : "scale(0.96)" }, { transform: "none" }]],
+      [session.backdrop, [{ opacity: 0 }, { opacity: 1 }]],
+      [session.closeButton, [{ opacity: 0 }, { opacity: 1 }]],
+    ], 320).then(() => {
+      if (imageLightboxSession === session && !session.closing) cancelLightboxAnimations(session);
+    });
+  }
+
+  const original = new Image();
+  original.src = src;
+  original.decode().then(() => {
+    if (imageLightboxSession === session && !session.closing) image.src = src;
+  }).catch(() => {}); // 原图失败时仍保留可见的预览图。
 }
 
-function closeImageLightbox() {
-  const lightbox = document.querySelector(".image-lightbox");
-  if (!lightbox || !lightbox.classList.contains("is-open")) return;
+function closeImageLightbox({ immediate = false } = {}) {
+  const session = imageLightboxSession;
+  if (!session || (session.closing && !immediate)) return;
 
-  lightbox.classList.remove("is-open");
-  lightbox.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("is-lightbox-open");
-  const image = lightbox.querySelector(".image-lightbox__image");
-  image.removeAttribute("src");
-  image.alt = "";
+  const finish = () => {
+    if (imageLightboxSession !== session) return;
+    cancelLightboxAnimations(session);
+    session.lightbox.classList.remove("is-open");
+    session.lightbox.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("is-lightbox-open");
+    session.source?.classList.remove("is-lightbox-source");
+    session.image.removeAttribute("src");
+    session.image.alt = "";
+    imageLightboxSession = null;
+    if (!immediate && session.sourceButton?.isConnected) session.sourceButton.focus({ preventScroll: true });
+  };
+
+  session.closing = true;
+  if (immediate || prefersReducedMotion()) {
+    finish();
+    return;
+  }
+
+  // 中途点击关闭时从当前动画帧折返，不跳到完全放大后的状态。
+  const transform = getComputedStyle(session.image).transform;
+  const backdropOpacity = getComputedStyle(session.backdrop).opacity;
+  const buttonOpacity = getComputedStyle(session.closeButton).opacity;
+  cancelLightboxAnimations(session);
+  const sourceRect = session.source?.isConnected ? session.source.getBoundingClientRect() : null;
+  const hasTarget = sourceRect?.width > 0 && sourceRect?.height > 0 && sourceRect.bottom > 0 && sourceRect.top < window.innerHeight;
+  animateLightbox(session, [
+    [session.image, [
+      { transform, opacity: 1 },
+      { transform: hasTarget ? lightboxSourceTransform(session.image, sourceRect) : "scale(0.96)", opacity: hasTarget ? 1 : 0 },
+    ]],
+    [session.backdrop, [{ opacity: backdropOpacity }, { opacity: 0 }]],
+    [session.closeButton, [{ opacity: buttonOpacity }, { opacity: 0 }]],
+  ], 260).then(finish);
 }
 
 async function openMarkdownDetail(kind, file) {
@@ -1126,11 +1215,11 @@ document.addEventListener("click", (event) => {
   const imageButton = event.target.closest("[data-lightbox-src]");
   if (imageButton) {
     event.preventDefault();
-    openImageLightbox(imageButton.getAttribute("data-lightbox-src"), imageButton.getAttribute("data-lightbox-alt") || "");
+    openImageLightbox(imageButton.getAttribute("data-lightbox-src"), imageButton.getAttribute("data-lightbox-alt") || "", imageButton);
     return;
   }
 
-  if (event.target.closest(".image-lightbox__close") || event.target.classList.contains("image-lightbox")) {
+  if (event.target.closest(".image-lightbox")) {
     event.preventDefault();
     closeImageLightbox();
     return;
@@ -1189,6 +1278,12 @@ document.addEventListener(
 
 // 窗口尺寸变化时重设 canvas；页面滚动时更新导航高亮。
 window.addEventListener("resize", () => {
+  if (imageLightboxSession?.closing) {
+    closeImageLightbox({ immediate: true });
+  } else if (imageLightboxSession) {
+    cancelLightboxAnimations(imageLightboxSession);
+    sizeLightboxImage(imageLightboxSession);
+  }
   resizeCanvas();
   scheduleStarfield();
 });
