@@ -65,7 +65,7 @@ window.BLOG_CONTENT = {
   "repos": [
     {
       "status": "Project",
-      "title": "Minecraft 1.21.x 自动连点器",
+      "title": "Minecraft 1.21.11 chy Mod",
       "file": "我的世界连点器mod.md"
     },
     {
