@@ -18,7 +18,7 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-31";
+const CONTENT_VERSION = "20261019-36";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -38,6 +38,8 @@ let activeNoteType = "all";
 let navHoverLink = null;
 let navLensTarget = null;
 let navTracking = false;
+let navPinnedLink = null;
+let navPinTimer = null;
 let imageLightboxSession = null;
 
 function prefersReducedMotion() {
@@ -50,13 +52,15 @@ function isReaderOpen() {
 
 /*
   主题切换：按钮只改 <html data-theme>，颜色全部由 styles.css 的变量接管。
-  用户的选择写进 localStorage，下次打开不会闪回默认主题。
+  每次打开/刷新都跟随设备主题；手动切换只在当前页面内覆盖。
 */
 function setupThemeToggle() {
   const button = document.querySelector(".theme-toggle");
   if (!button) return;
 
   const themeColor = document.querySelector('meta[name="theme-color"]');
+  const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+  let manualOverride = false;
 
   const syncButton = () => {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -67,16 +71,28 @@ function setupThemeToggle() {
     if (themeColor) themeColor.setAttribute("content", isDark ? "#14120f" : "#f4f1e8");
   };
 
+  const applySystemTheme = () => {
+    if (manualOverride) return;
+    document.documentElement.setAttribute(
+      "data-theme",
+      colorScheme.matches ? "dark" : "light"
+    );
+    syncButton();
+  };
+
   syncButton();
+
+  if (typeof colorScheme.addEventListener === "function") {
+    colorScheme.addEventListener("change", applySystemTheme);
+  } else if (typeof colorScheme.addListener === "function") {
+    colorScheme.addListener(applySystemTheme);
+  }
 
   button.addEventListener("click", () => {
     const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
-    try {
-      localStorage.setItem("chen-atelier-theme", next);
-    } catch (error) {
-      /* 隐私模式下写不进去也不影响切换。 */
-    }
+    // 如果手动切回了系统当前主题，就让后续系统变化继续自动生效。
+    manualOverride = next !== (colorScheme.matches ? "dark" : "light");
     syncButton();
   });
 }
@@ -382,7 +398,7 @@ function setNavLensTracking(clientX) {
 function syncNavLens(force = false) {
   if (!navElement || !navLensElement || navTracking) return;
 
-  const target = navHoverLink || navElement.querySelector("a.is-active");
+  const target = navHoverLink || navPinnedLink || navElement.querySelector("a.is-active");
   if (!force && target === navLensTarget) return;
 
   navLensTarget = target;
@@ -415,6 +431,48 @@ function navigateNavLink(link) {
   }
 }
 
+function setActiveNavLink(link) {
+  navLinks.forEach((item) => {
+    const active = item === link;
+    item.classList.toggle("is-active", active);
+    if (active) {
+      item.setAttribute("aria-current", "location");
+    } else {
+      item.removeAttribute("aria-current");
+    }
+  });
+}
+
+function clearNavPin() {
+  navPinnedLink = null;
+  if (navPinTimer) {
+    window.clearTimeout(navPinTimer);
+    navPinTimer = null;
+  }
+}
+
+/*
+  点击菜单后先把药丸钉在目标项上，直到滚动把 active 状态也带到这里。
+  否则滚动经过中间栏目时，药丸会先弹回旧的 active，再弹到目标。
+*/
+function pinNavLens(link) {
+  if (!navElement || !navLensElement || !link) return;
+
+  clearNavPin();
+  navPinnedLink = link;
+  navHoverLink = link;
+  setActiveNavLink(link);
+  syncNavLens();
+
+  navPinTimer = window.setTimeout(() => {
+    if (navPinnedLink !== link) return;
+    navPinnedLink = null;
+    navPinTimer = null;
+    if (!navElement.matches(":hover")) navHoverLink = null;
+    syncNavLens();
+  }, 2000);
+}
+
 function setupNavLens() {
   if (!navElement || !navLensElement) return;
 
@@ -443,6 +501,7 @@ function setupNavLens() {
   navElement.querySelectorAll("a").forEach((link) => {
     link.addEventListener("pointerenter", () => {
       if (navTracking) return;
+      if (navPinnedLink && navPinnedLink !== link) clearNavPin();
       navHoverLink = link;
       syncNavLens();
     });
@@ -512,6 +571,7 @@ function setupNavLens() {
       if (state.moved && navHoverLink) {
         // 拖动结束后手动跳到选中的栏目，并吞掉随后浏览器可能补发的那次 click。
         suppressNavClickUntil = performance.now() + 650;
+        pinNavLens(navHoverLink);
         navigateNavLink(navHoverLink);
       }
 
@@ -552,9 +612,16 @@ function setupNavLens() {
     true
   );
 
+  // 普通点击/键盘回车：药丸立刻落在被点的菜单项上，并保持到滚动结束。
+  navElement.addEventListener("click", (event) => {
+    const link = event.target.closest("a");
+    if (!link || !navElement.contains(link)) return;
+    pinNavLens(link);
+  });
+
   // 鼠标离开导航时回到当前栏目；触屏的收尾交给上面的定时器。
   navElement.addEventListener("pointerleave", (event) => {
-    if (event.pointerType !== "mouse") return;
+    if (event.pointerType !== "mouse" || navPinnedLink) return;
     navHoverLink = null;
     syncNavLens();
   });
@@ -562,6 +629,7 @@ function setupNavLens() {
   navElement.addEventListener("focusin", (event) => {
     const link = event.target.closest("a");
     if (!link) return;
+    if (navPinnedLink && navPinnedLink !== link) clearNavPin();
     navHoverLink = link;
     syncNavLens();
   });
@@ -586,22 +654,23 @@ function updateActiveNav() {
   const links = [...navLinks];
   const atPageBottom =
     window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
-  const current = atPageBottom
+  const actualCurrent = atPageBottom
     ? links[links.length - 1]
     : links.findLast((link) => {
         const section = document.querySelector(link.getAttribute("href"));
         return section && section.getBoundingClientRect().top < window.innerHeight * 0.42;
       });
+  const current = navPinnedLink || actualCurrent;
 
-  navLinks.forEach((link) => {
-    const active = link === current;
-    link.classList.toggle("is-active", active);
-    if (active) {
-      link.setAttribute("aria-current", "location");
-    } else {
-      link.removeAttribute("aria-current");
+  setActiveNavLink(current);
+
+  if (navPinnedLink && actualCurrent === navPinnedLink) {
+    const wasPinned = navPinnedLink;
+    clearNavPin();
+    if (!navElement.matches(":hover") && navHoverLink === wasPinned) {
+      navHoverLink = null;
     }
-  });
+  }
 
   syncNavLens();
 }
@@ -1457,6 +1526,8 @@ document.addEventListener(
   "pointerdown",
   (event) => {
     if (event.button !== 0 || prefersReducedMotion()) return;
+    // 手指按下通常是要滚动页面，不要在卡片上留下白色光斑。
+    if (event.pointerType === "touch") return;
 
     const target = event.target.closest(TAP_SELECTOR);
     if (!target) return;

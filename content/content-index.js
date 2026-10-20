@@ -2,6 +2,12 @@
 window.BLOG_CONTENT = {
   "notes": [
     {
+      "date": "2026-10-20",
+      "type": "饭后杂谈",
+      "title": "简单论",
+      "file": "2026_10_20_饭后杂谈_简单论.md"
+    },
+    {
       "date": "2026-08-14",
       "type": "经验",
       "title": "iOS转OPPO笔记",

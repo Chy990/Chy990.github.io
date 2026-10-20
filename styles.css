@@ -1979,7 +1979,7 @@ body.is-reader-open::before {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
-  width: min(900px, calc(100% - 48px));
+  width: min(1040px, calc(100% - 56px));
   margin: 12px auto 0;
   padding: 10px 16px;
   border: 1px solid var(--glass-border);
@@ -2049,7 +2049,7 @@ body.is-reader-open::before {
 }
 
 .reader-panel {
-  width: min(900px, calc(100% - 48px));
+  width: min(1040px, calc(100% - 56px));
   margin: 0 auto;
   padding: clamp(40px, 6vw, 76px) 0 0;
   background: transparent;
@@ -2086,7 +2086,7 @@ body.is-reader-open::before {
 }
 
 .reader-body {
-  max-width: 44em;
+  max-width: 50em;
   color: var(--ink-2);
   font-family: var(--font-serif);
   font-size: clamp(16.5px, 1.4vw, 19px);

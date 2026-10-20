@@ -23,19 +23,17 @@
 
     <!--
       主题（浅色 / 深色）要在 CSS 绘制之前确定，避免打开页面时闪一下白。
-      用户手动切换过就记住选择，否则跟随系统。
+      每次打开或刷新都以当前设备的系统主题为准。
     -->
     <script>
       (function () {
-        var stored = null;
-        try {
-          stored = localStorage.getItem("chen-atelier-theme");
-        } catch (error) {
-          /* 隐私模式下 localStorage 可能不可用，忽略即可。 */
-        }
-        var theme =
-          stored || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        var theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", theme);
+
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) {
+          themeColor.setAttribute("content", theme === "dark" ? "#14120f" : "#f4f1e8");
+        }
       })();
     </script>
 
@@ -50,7 +48,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261019-31" />
+    <link rel="stylesheet" href="./styles.css?v=20261019-36" />
   </head>
   <body>
     <!-- 键盘用户可以直接跳过导航，进入正文。 -->
@@ -321,8 +319,8 @@
     </section>
 
     <!-- 自动生成的内容清单；平时只增删 content 里的文件即可。 -->
-    <script src="./content/content-index.js?v=20261019-31"></script>
+    <script src="./content/content-index.js?v=20261019-36"></script>
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261019-31"></script>
+    <script src="./script.js?v=20261019-36"></script>
   </body>
 </html>
