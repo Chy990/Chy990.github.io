@@ -508,7 +508,7 @@ body.is-header-hidden .site-header {
 }
 
 .nav-lens.is-tracking::before {
-  transform: scale(1.06);
+  transform: scale(1.16);
   box-shadow: var(--nav-lens-shadow-lift);
 }
 
