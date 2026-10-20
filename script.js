@@ -18,7 +18,7 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-27";
+const CONTENT_VERSION = "20261019-30";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -364,7 +364,7 @@ function setNavLensTracking(clientX) {
     navLinks.forEach((link) => link.classList.toggle("is-lens-target", link === nearest));
   }
 
-  const width = nearest.offsetWidth;
+  const width = nearest.offsetWidth * 1.05;
   const navRect = navElement.getBoundingClientRect();
   const localX = clientX - navRect.left - navElement.clientLeft;
   const firstLink = links[0];

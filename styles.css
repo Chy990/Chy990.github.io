@@ -471,9 +471,15 @@ body.is-header-hidden .site-header {
   transform: translateX(var(--lens-x, 0)) scale(1);
 }
 
-/* 手指拖动时取消过渡，药丸直接跟手。 */
+/*
+  手指拖动时给药丸一点“追不上手”的阻尼和回弹，
+  同时宽度比按钮略宽一点，像被手指拉长。
+*/
 .nav-lens.is-tracking {
-  transition: none;
+  transition:
+    transform 220ms var(--ease-spring),
+    width 220ms var(--ease-spring),
+    opacity 180ms ease;
 }
 
 .primary-nav a {
