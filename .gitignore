@@ -1,5 +1,32 @@
+# macOS / Windows 系统垃圾文件
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+
+# Python 缓存
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+
+# 编辑器和临时文件
+.vscode/
+.idea/
+*.log
+*.tmp
+*.bak
+*.orig
+
+# 本地旧版本备份（保留在电脑上，但不提交到 GitHub）
+backup_*/
+
+# 页面已不再引用的本地素材
+logo.jpg
+
+# 相册原图 / 中间文件
 *.raw.jpg
+*.HEIC
+*.heic
 content/gallery/**/*.HEIC
+content/gallery/**/*.heic

@@ -3,199 +3,316 @@
   <head>
     <!--
       index.html 负责“页面结构”：有哪些区域、每个区域里放什么内容。
-      真正的视觉样式，比如颜色、布局、动画速度，主要在 styles.css。
-      动态读取笔记/仓库/相册内容，主要在 script.js。
+      视觉样式在 styles.css；动态读取笔记/仓库/相册内容在 script.js。
     -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chen的实验台</title>
+    <title>Chen 的实验台</title>
+    <meta
+      name="description"
+      content="Chen 的个人实验台：阅读笔记、项目仓库与旅行相册。"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f4f1e8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chen 的实验台" />
+    <meta property="og:description" content="阅读笔记、项目仓库与旅行相册。" />
+    <meta property="og:image" content="./content/gallery/_thumbs/20260320维洲/mel1.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="./logo-favicon.png" type="image/png" />
-    <link rel="preconnect" href="https://images.unsplash.com" />
+
     <!--
-      ?v= 后面是开发期的缓存版本号。
-      如果你改了 styles.css / script.js 但刷新后没变化，可以把这里和底部 script 的 v 改大一点。
+      主题（浅色 / 深色）要在 CSS 绘制之前确定，避免打开页面时闪一下白。
+      用户手动切换过就记住选择，否则跟随系统。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20260916-01" />
+    <script>
+      (function () {
+        var stored = null;
+        try {
+          stored = localStorage.getItem("chen-atelier-theme");
+        } catch (error) {
+          /* 隐私模式下 localStorage 可能不可用，忽略即可。 */
+        }
+        var theme =
+          stored || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+
+    <!-- 首屏照片优先加载，避免进入页面时留白。 -->
+    <link
+      rel="preload"
+      as="image"
+      href="./content/gallery/_thumbs/20260320维洲/mel1.jpg"
+    />
+
+    <!--
+      ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
+      把这里和底部 script 的版本号一起改大即可。
+    -->
+    <link rel="stylesheet" href="./styles.css?v=20261019-15" />
   </head>
   <body>
-    <!--
-      这个 canvas 是背景粒子层。它本身没有文字内容，
-      具体怎么画星点、怎么跟随鼠标移动，由 script.js 里的 drawStarfield() 控制。
-    -->
-    <canvas id="starfield" aria-hidden="true"></canvas>
+    <!-- 键盘用户可以直接跳过导航，进入正文。 -->
+    <a class="skip-link" href="#main">跳到主要内容</a>
 
-    <!-- 自定义鼠标光圈现在在 CSS 中隐藏；保留这个元素，避免改动 JS 结构。 -->
-    <div class="cursor-dot" aria-hidden="true"></div>
+    <noscript>
+      <p class="noscript-note">
+        这个站点使用 JavaScript 读取 Markdown 内容。启用 JavaScript 后可以看到完整的笔记、仓库和相册。
+      </p>
+    </noscript>
 
-    <!-- 页面主体容器：限制最大宽度，让内容在大屏上不会铺得太散。 -->
+    <!-- 页面滚动进度条，纯 CSS 滚动驱动，不支持时自动隐藏。 -->
+    <div class="page-progress" aria-hidden="true"></div>
+
     <div class="page-shell">
-      <!--
-        顶部导航栏。
-        data-reveal 表示这个元素会被 script.js 监听，进入视口时触发淡入上移动画。
-      -->
-      <header class="site-header" data-reveal>
+      <!-- 顶部导航：品牌 / 一级菜单 / 主题开关。 -->
+      <header class="site-header">
         <a class="brand" href="#home" aria-label="返回首页">
-          <span class="brand-mark"></span>
-          <span>Chen的实验台</span>
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-text">Chen 的实验台</span>
         </a>
 
-        <!--
-          一级菜单：笔记、仓库、相册。
-          href="#notes" 这种写法会跳转到页面里 id="notes" 的 section。
-          data-nav 会被 script.js 用来判断当前滚动到哪个栏目，并高亮菜单。
-        -->
         <nav class="primary-nav" aria-label="一级菜单">
           <a href="#notes" data-nav>笔记</a>
           <a href="#repos" data-nav>仓库</a>
           <a href="#gallery" data-nav>相册</a>
+          <a href="#updates" data-nav>更新</a>
+          <a href="#profile" data-nav>个人</a>
         </nav>
+
+        <button
+          class="theme-toggle"
+          type="button"
+          aria-label="切换到深色模式"
+          aria-pressed="false"
+          title="切换深色模式"
+        >
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.5" />
+            <path
+              d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M20.2 14.6A8.2 8.2 0 0 1 9.4 3.8 8.7 8.7 0 1 0 20.2 14.6Z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
       </header>
 
-      <main>
+      <main id="main">
         <!--
-          首页首屏 Hero：用户进入网站第一眼看到的区域。
-          左边是标题和按钮，右边是装饰性的 3D 卡片、轨道和浮动照片。
-          这些装饰物的视觉位置和动画在 styles.css 的 .hero、.orbit、.journal-card 等规则里。
+          首屏：左边是刊头式的标题与入口，右边是真实相册照片组成的“图版”。
+          不再使用外部图库图片，首屏展示的就是站内自己的内容。
         -->
         <section id="home" class="hero">
           <div class="hero-copy" data-reveal>
-            <p class="eyebrow">Personal Journal / Notes / Gallery</p>
-            <h1>把生活写成一条会发光的时间线。</h1>
+            <p class="eyebrow hero-eyebrow">
+              <span class="eyebrow-mark" aria-hidden="true"></span>
+              个人日志 · 笔记 · 项目 · 相册
+            </p>
+
+            <h1>
+              <span class="hero-line">致力于持续性</span>
+              <span class="hero-line">高质量</span>
+              <span class="hero-line"><em>调节</em></span>
+            </h1>
+
             <p class="hero-text">
               这里收集阅读笔记、小项目仓库、旅行相册和一点点关于自己的长话短说。
             </p>
+
             <div class="hero-actions">
-              <a class="button primary" href="#notes">开始阅读</a>
-              <a class="button ghost" href="#repos">看仓库</a>
-              <a class="button ghost" href="#gallery">看相册</a>
+              <a class="button primary" href="#notes">
+                <span>开始阅读</span>
+                <span class="button-arrow" aria-hidden="true">↓</span>
+              </a>
+              <a class="button ghost" href="#repos">仓库</a>
+              <a class="button ghost" href="#gallery">相册</a>
             </div>
+
+            <p class="hero-foot">
+              <span>v2.0</span>
+              <span>2024 — 2026</span>
+              <span>Sydney / Zhuhai</span>
+            </p>
           </div>
 
-          <div class="hero-visual" data-reveal>
-            <div class="orbit orbit-one"></div>
-            <div class="orbit orbit-two"></div>
-            <div class="journal-card">
-              <span class="card-date">2026.06</span>
-              <strong>今日灵感</strong>
-              <p>给每个普通瞬间留一点被重新发现的余地。</p>
+          <div class="hero-visual" data-reveal aria-label="相册照片选摘">
+            <div class="hero-plate hero-plate--main">
+              <figure class="hero-photo">
+                <img
+                  src="./content/gallery/_thumbs/20260320维洲/mel1.jpg"
+                  data-fallback-src="./content/gallery/20260320维洲/mel1.jpg"
+                  alt="维洲街头的电车、行人与树影"
+                  width="1067"
+                  height="1600"
+                  fetchpriority="high"
+                />
+                <figcaption><span>维洲 · 墨尔本</span><span>2026.03</span></figcaption>
+              </figure>
             </div>
-            <div class="floating-photo photo-one"></div>
-            <div class="floating-photo photo-two"></div>
+
+            <div class="hero-plate hero-plate--sub">
+              <figure class="hero-photo">
+                <img
+                  src="./content/gallery/_thumbs/20260621吉林/flight-home.jpg"
+                  data-fallback-src="./content/gallery/20260621吉林/flight-home.jpg"
+                  alt="回吉林的航班上，机翼与云层"
+                  width="1600"
+                  height="1200"
+                />
+                <figcaption><span>吉林</span><span>2026.06</span></figcaption>
+              </figure>
+            </div>
+
+            <aside class="journal-card">
+              <div class="journal-head">
+                <span class="card-label">今日灵感</span>
+                <span class="card-date">2026.06</span>
+              </div>
+              <strong>给每个普通瞬间，留一点被重新发现的余地。</strong>
+              <p>随手记 / Note to self</p>
+            </aside>
+
           </div>
         </section>
 
-        <!--
-          详情阅读区域。
-          当你点击笔记、仓库或相册卡片时，script.js 会把对应文件内容渲染到这里。
-          URL 会变成 #note/xxx.md、#repo/xxx.md 或 #photo/xxx.jpg。
-        -->
-        <section id="reader" class="content-section reader-section" aria-hidden="true">
-          <article class="reader-panel">
-            <a class="reader-back" href="#notes">返回列表</a>
-            <p class="eyebrow reader-type">Reader</p>
-            <h2 class="reader-title">内容详情</h2>
-            <div class="reader-body"></div>
-          </article>
-        </section>
-
-        <!--
-          笔记区域。
-          内容来源是 content/notes 文件夹里的 Markdown。
-          start-blog.command 会先运行 generate-content-index.py，
-          自动把 notes 目录里的 .md 文件整理成页面可读取的清单。
-        -->
+        <!-- 笔记：清单式索引，点击整行进入阅读页。 -->
         <section id="notes" class="content-section split-section">
           <div class="section-heading" data-reveal>
+            <span class="section-index" aria-hidden="true">01</span>
             <h2>笔记</h2>
-            <p class="eyebrow">Notes</p>
+            <p class="eyebrow">
+              <span>Notes</span>
+              <span class="section-count" data-section-count="notes">—</span>
+            </p>
           </div>
           <div class="note-filters" aria-label="按笔记类型筛选" data-reveal></div>
           <div class="note-grid">
-            <div class="loading-row" data-reveal>正在读取笔记...</div>
+            <div class="loading-row" data-reveal>正在读取笔记…</div>
           </div>
         </section>
 
-        <!--
-          仓库区域。
-          这里 HTML 只放一个“正在读取”的占位元素；
-          页面加载后，script.js 会读取自动生成的内容清单和对应 Markdown，
-          再把真正的小项目卡片插入 .repo-grid 容器。
-        -->
+        <!-- 仓库：三个项目并排展示。内容来自 content/repos 里的 Markdown。 -->
         <section id="repos" class="content-section">
           <div class="section-heading" data-reveal>
+            <span class="section-index" aria-hidden="true">02</span>
             <h2>仓库</h2>
-            <p class="eyebrow">Repository</p>
+            <p class="eyebrow">
+              <span>Repository</span>
+              <span class="section-count" data-section-count="repos">—</span>
+            </p>
           </div>
           <div class="repo-grid">
-            <div class="loading-row" data-reveal>正在读取仓库...</div>
+            <div class="loading-row" data-reveal>正在读取仓库…</div>
           </div>
         </section>
 
-        <!--
-          相册区域。
-          内容来源是 content/gallery 文件夹里的 jpg/png 图片。
-          图片标题会根据文件名自动生成，不需要再手写 JSON。
-        -->
+        <!-- 相册：三本相册按图版大小错落排列。 -->
         <section id="gallery" class="content-section">
           <div class="section-heading" data-reveal>
+            <span class="section-index" aria-hidden="true">03</span>
             <h2>相册</h2>
-            <p class="eyebrow">Gallery</p>
+            <p class="eyebrow">
+              <span>Gallery</span>
+              <span class="section-count" data-section-count="gallery">—</span>
+            </p>
           </div>
           <div class="gallery-grid">
-            <div class="loading-row" data-reveal>正在读取相册...</div>
+            <div class="loading-row" data-reveal>正在读取相册…</div>
           </div>
         </section>
 
         <div class="bottom-layout">
-          <!--
-            个人介绍区域。
-            目前这里是固定写在 HTML 里的文字和统计数据；
-            如果以后想让它也从 Markdown 读取，可以在 script.js 增加类似 renderProfile() 的函数。
-          -->
-          <section id="profile" class="profile-section bottom-pane">
+          <!-- 最近更新：内容更新历史与模板更新历史。 -->
+          <section id="updates" class="updates-section bottom-pane">
             <div class="section-heading" data-reveal>
-              <h2>个人</h2>
-              <p class="eyebrow">Profile</p>
+              <span class="section-index" aria-hidden="true">04</span>
+              <h2>最近更新</h2>
+              <p class="eyebrow">
+                <span>Updates</span>
+                <span class="section-count" data-section-count="updates">—</span>
+              </p>
             </div>
-            <div class="profile-panel" data-reveal>
-              <div>
-                <p>
-                  该实验台是用于记录笔记、仓库和一些照片的平台。本平台将会持续更新，并且不断的做各种优化，增强用户的使用和交互体验。
-                </p>
-              </div>
-              <div class="profile-stats">
-                <span><strong data-stat="repos">0</strong> 个项目</span>
-                <span><strong data-stat="notes">0</strong> 则笔记</span>
-                <span><strong data-stat="gallery">0</strong> 个相册</span>
-              </div>
+            <div class="update-grid">
+              <div class="loading-row" data-reveal>正在读取更新历史…</div>
             </div>
           </section>
 
-          <!--
-            最近更新区域。
-            内容来源是 content/updates 文件夹里的 Markdown，
-            包括内容更新历史和模板更新历史。
-          -->
-          <section id="updates" class="updates-section bottom-pane">
+          <!-- 个人：作为整页的版权页 / 自我介绍收尾。 -->
+          <section id="profile" class="profile-section bottom-pane">
             <div class="section-heading" data-reveal>
-              <h2>最近更新</h2>
-              <p class="eyebrow">Updates</p>
+              <span class="section-index" aria-hidden="true">05</span>
+              <h2>个人</h2>
+              <p class="eyebrow">
+                <span>Profile</span>
+                <span class="section-count">COLOPHON</span>
+              </p>
             </div>
-            <div class="update-grid">
-              <div class="loading-row" data-reveal>正在读取更新历史...</div>
+            <div class="profile-panel" data-reveal>
+              <p class="profile-statement">
+                该实验台是用于记录笔记、仓库和一些照片的平台。本平台将会持续更新，并且不断的做各种优化，增强用户的使用和交互体验。
+              </p>
+              <div class="profile-stats">
+                <span><strong data-stat="repos">0</strong><small>个项目</small></span>
+                <span><strong data-stat="notes">0</strong><small>则笔记</small></span>
+                <span><strong data-stat="gallery">0</strong><small>本相册</small></span>
+              </div>
             </div>
           </section>
         </div>
       </main>
+
+      <footer class="site-footer">
+        <p class="footer-brand">Chen 的实验台</p>
+        <p class="footer-note">阅读、建造、拍照。用原生 HTML / CSS / JS 手写。</p>
+        <p class="footer-meta">
+          <span>© 2026</span>
+          <a href="#home">回到顶部 ↑</a>
+        </p>
+      </footer>
     </div>
 
     <!--
-      content-index.js 是 generate-content-index.py 自动生成的文件。
-      你平时只需要增删 notes/repos/gallery 里的文件，不需要手动编辑这个清单。
+      阅读详情层：点击笔记、仓库、相册或更新卡片后从卡片展开。
+      它放在 .page-shell 外面，打开时可以让背后的页面整体 inert，避免误触。
     -->
-    <script src="./content/content-index.js?v=20260815-05"></script>
+    <section
+      id="reader"
+      class="reader-section"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reader-title"
+      aria-hidden="true"
+      inert
+    >
+      <div class="reader-bar">
+        <a class="reader-back" href="#notes">← 返回列表</a>
+        <span class="reader-bar-label" aria-hidden="true">READING</span>
+        <div class="reader-progress" aria-hidden="true"><span></span></div>
+      </div>
 
-    <!-- script.js 放在 body 末尾，确保上面的 DOM 元素已经存在，JS 才开始查找和操作它们。 -->
-    <script src="./script.js?v=20260916-01"></script>
+      <article class="reader-panel">
+        <p class="eyebrow reader-type">Reader</p>
+        <h2 class="reader-title" id="reader-title">内容详情</h2>
+        <p class="reader-meta"></p>
+        <div class="reader-body"></div>
+        <p class="reader-end" aria-hidden="true"><span></span>END</p>
+      </article>
+    </section>
+
+    <!-- 自动生成的内容清单；平时只增删 content 里的文件即可。 -->
+    <script src="./content/content-index.js?v=20261019-15"></script>
+    <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
+    <script src="./script.js?v=20261019-15"></script>
   </body>
 </html>

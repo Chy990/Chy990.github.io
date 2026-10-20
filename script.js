@@ -1,37 +1,26 @@
 /*
   script.js 负责“动态行为”和“数据读取”：
-  1. 绘制背景粒子 canvas。
-  2. 让自定义鼠标光圈跟随鼠标移动。
-  3. 根据滚动位置高亮顶部菜单。
-  4. 读取自动生成的 content/content-index.js 清单，并渲染 notes/repos/gallery 里的内容。
-  5. 给动态生成的卡片补上滚动淡入和 hover 光晕效果。
+  1. 根据滚动位置高亮顶部菜单、隐藏/显示导航。
+  2. 读取自动生成的 content/content-index.js 清单，并渲染 notes/repos/gallery 里的内容。
+  3. 打开 Markdown 详情层、图片灯箱，并记住返回时的滚动位置。
+  4. 浅色 / 深色主题切换。
+  5. 滚动入场动画与阅读进度。
 
   如果你想改“页面有什么内容从哪里读取”，主要看 renderNotes/renderRepos/renderGallery。
   如果你想改“长什么样”，优先去 styles.css。
 */
 
-// 拿到背景 canvas 和绘图上下文。粒子背景全部画在这个 canvas 上。
-const canvas = document.querySelector("#starfield");
-const ctx = canvas.getContext("2d");
+// 只有脚本正常执行时，CSS 才会启用 [data-reveal] 的隐藏状态。
+// 这样 JS 失效或加载失败时，页面内容不会被隐藏。
+document.documentElement.classList.add("js");
 
-// 自定义鼠标光圈，以及顶部导航链接。
-const cursor = document.querySelector(".cursor-dot");
 const navLinks = document.querySelectorAll("[data-nav]");
-const CONTENT_VERSION = "20260815-05";
-const LOW_POWER_MODE = true;
+const pageShell = document.querySelector(".page-shell");
+const CONTENT_VERSION = "20261019-15";
+const BASE_TITLE = "Chen 的实验台";
 
-// canvas 当前尺寸和背景粒子数组。
-let width = 0;
-let height = 0;
-let stars = [];
-
-// mouse 是真实鼠标位置；cursorPos 是光圈当前位置，用来做“延迟跟随”的柔和效果。
-let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-let cursorPos = { x: mouse.x, y: mouse.y };
-
-// WeakSet 用来记录哪些元素已经绑定过观察器/hover 事件，避免重复绑定。
-let observedRevealItems = new WeakSet();
-let observedHoverTargets = new WeakSet();
+// WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
+const observedRevealItems = new WeakSet();
 let notesData = [];
 let reposData = [];
 let galleryData = [];
@@ -44,9 +33,6 @@ let contentIndexCache = null;
 let textFileCache = new Map();
 let lastScrollY = window.scrollY;
 let activeNoteType = "all";
-let starfieldFrameId = null;
-let starfieldTimeoutId = null;
-let lastPointerActivityAt = performance.now();
 let imageLightboxSession = null;
 
 function prefersReducedMotion() {
@@ -58,22 +44,36 @@ function isReaderOpen() {
 }
 
 /*
-  根据系统主题返回粒子和光晕颜色。
-  CSS 负责页面主题，JS 这里负责 canvas 粒子颜色，因为 canvas 不是 CSS 直接画出来的。
+  主题切换：按钮只改 <html data-theme>，颜色全部由 styles.css 的变量接管。
+  用户的选择写进 localStorage，下次打开不会闪回默认主题。
 */
-function getThemeColors() {
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return dark
-    ? {
-        glowA: "rgba(120, 240, 255, 0.16)",
-        glowB: "rgba(255, 111, 174, 0.055)",
-        star: "255, 255, 255",
-      }
-    : {
-        glowA: "rgba(0, 158, 195, 0.105)",
-        glowB: "rgba(216, 73, 135, 0.055)",
-        star: "30, 58, 86",
-      };
+function setupThemeToggle() {
+  const button = document.querySelector(".theme-toggle");
+  if (!button) return;
+
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+
+  const syncButton = () => {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const label = isDark ? "切换到浅色模式" : "切换到深色模式";
+    button.setAttribute("aria-pressed", String(isDark));
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    if (themeColor) themeColor.setAttribute("content", isDark ? "#14120f" : "#f4f1e8");
+  };
+
+  syncButton();
+
+  button.addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("chen-atelier-theme", next);
+    } catch (error) {
+      /* 隐私模式下写不进去也不影响切换。 */
+    }
+    syncButton();
+  });
 }
 
 /*
@@ -153,11 +153,11 @@ function isStandaloneLink(line) {
 /*
   把 Markdown 的前几行转换成首页卡片里的简短预览。
   这是一个轻量转换器，不是完整 Markdown 解析器：
-  - # 标题会变成 <h3>
   - - 列表项会变成带圆点的段落
   - 普通行会变成 <p>
+  - dateHeadings 为 true 时，更新日志里的 ### 2026-09-16 会保留成日期标签
 */
-function markdownToPreview(markdown, maxLines = 5) {
+function markdownToPreview(markdown, maxLines = 5, { dateHeadings = false } = {}) {
   const lines = [];
   let inCode = false;
 
@@ -170,27 +170,34 @@ function markdownToPreview(markdown, maxLines = 5) {
     }
 
     if (!line || inCode) continue;
-    // 卡片预览里不显示 Markdown 标题，避免破坏“第一行 title，第二行 date/type”的结构。
-    if (line.startsWith("#")) continue;
+
+    // 卡片预览里默认不显示 Markdown 标题，避免破坏“标题 + 日期 + 摘要”的结构。
+    if (line.startsWith("#")) {
+      if (dateHeadings && /^#{2,4}\s*\d{4}[-./]\d{1,2}[-./]\d{1,2}/.test(line)) {
+        lines.push({ kind: "date", text: line.replace(/^#+\s*/, "") });
+        if (lines.length >= maxLines) break;
+      }
+      continue;
+    }
+
     // 单独一行的仓库链接在详情页更有价值，预览里跳过，避免 Markdown 原文挤乱卡片。
     if (isStandaloneLink(line)) continue;
 
-    lines.push(line);
+    lines.push({ kind: "text", text: line });
     if (lines.length >= maxLines) break;
   }
 
   return lines
-    .map((line) => {
-      if (line.startsWith("#")) {
-        const text = line.replace(/^#+\s*/, "");
-        return `<h3>${renderInlineMarkdown(text, { allowLinks: false })}</h3>`;
+    .map(({ kind, text }) => {
+      if (kind === "date") {
+        return `<p class="update-date">${escapeHtml(text)}</p>`;
       }
 
-      if (line.startsWith("- ")) {
-        return `<p>${renderInlineMarkdown(line.replace(/^- /, "• "), { allowLinks: false })}</p>`;
+      if (text.startsWith("- ")) {
+        return `<p>${renderInlineMarkdown(text.replace(/^- /, "• "), { allowLinks: false })}</p>`;
       }
 
-      return `<p>${renderInlineMarkdown(line, { allowLinks: false })}</p>`;
+      return `<p>${renderInlineMarkdown(text, { allowLinks: false })}</p>`;
     })
     .join("");
 }
@@ -274,7 +281,8 @@ function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
       const imageSrc = resolveContentImageSrc(src, imageBasePath);
       const safeImageSrc = escapeHtml(imageSrc);
       const previewSrc = galleryThumbnailSrc(imageSrc);
-      html += `<figure class="reader-photo${layoutClass} is-zoomable"><button class="reader-photo-button" type="button" data-lightbox-src="${safeImageSrc}" data-lightbox-alt="${escapeHtml(altText)}" aria-label="查看原图：${escapeHtml(altText || "图片")}"><img src="${escapeHtml(previewSrc)}" data-fallback-src="${safeImageSrc}" alt="${escapeHtml(altText)}" loading="lazy" /></button></figure>`;
+      const caption = altText ? `<figcaption>${escapeHtml(altText)}</figcaption>` : "";
+      html += `<figure class="reader-photo${layoutClass} is-zoomable"><button class="reader-photo-button" type="button" data-lightbox-src="${safeImageSrc}" data-lightbox-alt="${escapeHtml(altText)}" aria-label="查看原图：${escapeHtml(altText || "图片")}"><img src="${escapeHtml(previewSrc)}" data-fallback-src="${safeImageSrc}" alt="${escapeHtml(altText)}" loading="lazy" decoding="async" /></button>${caption}</figure>`;
       continue;
     }
 
@@ -301,149 +309,17 @@ function stripFrontmatter(markdown) {
 }
 
 /*
-  根据浏览器窗口尺寸重设 canvas。
-  devicePixelRatio 用来让高清屏上的粒子不模糊，但最多限制到 2，避免太耗性能。
+  粗略估算阅读时间：
+  中文按每分钟 400 字、英文按每分钟 220 词计算。
+  只用于卡片上的辅助信息，不需要非常精确。
 */
-function resizeCanvas() {
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, LOW_POWER_MODE ? 1.25 : 2);
-  width = window.innerWidth;
-  height = window.innerHeight;
-  canvas.width = Math.floor(width * pixelRatio);
-  canvas.height = Math.floor(height * pixelRatio);
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-
-  // 重置渐变缓存，让 drawStarfield 在下个 rAF 重建渐变。
-  cachedGlowGradient = null;
-  lastGlowMouse = { x: -1000, y: -1000 };
-
-  // 根据屏幕面积决定粒子数量。低功耗模式下减少粒子和高清倍率，降低 CPU/GPU 压力。
-  const maxStars = LOW_POWER_MODE ? 90 : 180;
-  const minStars = LOW_POWER_MODE ? 42 : 90;
-  const density = LOW_POWER_MODE ? 0.000055 : 0.00013;
-  const count = Math.floor(Math.min(maxStars, Math.max(minStars, width * height * density)));
-  stars = Array.from({ length: count }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    z: Math.random() * 0.9 + 0.1,
-    r: Math.random() * 1.8 + 0.45,
-    vx: (Math.random() - 0.5) * 0.16,
-    vy: (Math.random() - 0.5) * 0.16,
-  }));
-}
-
-/*
-  每一帧绘制背景粒子。
-  requestAnimationFrame 会让浏览器在下一帧继续调用这个函数，形成连续动画。
-*/
-
-// 缓存上次鼠标位置和径向渐变，避免每帧重建 createRadialGradient。
-let lastGlowMouse = { x: -1000, y: -1000 };
-let cachedGlowGradient = null;
-
-function drawStarfield() {
-  starfieldFrameId = null;
-
-  if (document.hidden || isReaderOpen()) {
-    starfieldTimeoutId = null;
-    return;
-  }
-
-  const shouldAnimate = !LOW_POWER_MODE && !prefersReducedMotion();
-  const theme = getThemeColors();
-  ctx.clearRect(0, 0, width, height);
-
-  // 鼠标附近的彩色柔光，鼠标移动时光晕中心也跟着移动。
-  // 只在鼠标移动超过阈值时重建渐变，大幅减少 createRadialGradient 调用。
-  const gradientRadius = Math.max(width, height) * 0.08;
-  const dx = mouse.x - lastGlowMouse.x;
-  const dy = mouse.y - lastGlowMouse.y;
-  if (Math.abs(dx) > 6 || Math.abs(dy) > 6 || !cachedGlowGradient) {
-    lastGlowMouse = { x: mouse.x, y: mouse.y };
-    cachedGlowGradient = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, gradientRadius);
-    cachedGlowGradient.addColorStop(0, theme.glowA);
-    cachedGlowGradient.addColorStop(0.34, theme.glowB);
-    cachedGlowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-  }
-  ctx.fillStyle = cachedGlowGradient;
-  ctx.fillRect(0, 0, width, height);
-
-  // 逐个更新并绘制粒子。
-  for (const star of stars) {
-    const pullX = shouldAnimate ? (mouse.x - width / 2) * star.z * 0.014 : 0;
-    const pullY = shouldAnimate ? (mouse.y - height / 2) * star.z * 0.014 : 0;
-
-    if (shouldAnimate) {
-      star.x += star.vx + pullX * 0.006;
-      star.y += star.vy + pullY * 0.006;
-
-      // 粒子飞出屏幕后，从另一侧回到画面里，保证背景一直有点。
-      if (star.x < -20) star.x = width + 20;
-      if (star.x > width + 20) star.x = -20;
-      if (star.y < -20) star.y = height + 20;
-      if (star.y > height + 20) star.y = -20;
-    }
-
-    ctx.beginPath();
-    ctx.arc(star.x + pullX, star.y + pullY, star.r * star.z, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${theme.star}, ${0.16 + star.z * 0.44})`;
-    ctx.fill();
-  }
-
-  if (shouldAnimate) {
-    scheduleStarfield();
-  }
-}
-
-function scheduleStarfield() {
-  if (starfieldFrameId || starfieldTimeoutId || document.hidden || isReaderOpen()) return;
-
-  if (LOW_POWER_MODE || prefersReducedMotion()) {
-    starfieldFrameId = requestAnimationFrame(drawStarfield);
-    return;
-  }
-
-  const idleFor = performance.now() - lastPointerActivityAt;
-  if (idleFor > 3000) {
-    starfieldTimeoutId = window.setTimeout(() => {
-      starfieldTimeoutId = null;
-      starfieldFrameId = requestAnimationFrame(drawStarfield);
-    }, 80);
-    return;
-  }
-
-  starfieldFrameId = requestAnimationFrame(drawStarfield);
-}
-
-function pauseStarfield() {
-  if (starfieldFrameId) {
-    cancelAnimationFrame(starfieldFrameId);
-    starfieldFrameId = null;
-  }
-
-  if (starfieldTimeoutId) {
-    clearTimeout(starfieldTimeoutId);
-    starfieldTimeoutId = null;
-  }
-}
-
-function resumeStarfield() {
-  lastPointerActivityAt = performance.now();
-  scheduleStarfield();
-}
-
-/*
-  自定义鼠标光圈动画。
-  它不是立刻跳到鼠标位置，而是每一帧靠近一点，所以会有顺滑的拖尾感。
-  注意：.cursor-dot 已在 CSS 中设为 display: none，此函数提前返回以节省 rAF 开销。
-*/
-function animateCursor() {
-  return;
-  cursorPos.x += (mouse.x - cursorPos.x) * 0.18;
-  cursorPos.y += (mouse.y - cursorPos.y) * 0.18;
-  cursor.style.transform = `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`;
-  requestAnimationFrame(animateCursor);
+function readingMinutes(markdown) {
+  const text = markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[#>*_`\[\]()!-]/g, " ");
+  const cjk = (text.match(/[\u3400-\u9fff]/g) || []).length;
+  const words = (text.replace(/[\u3400-\u9fff]/g, " ").match(/[A-Za-z0-9]+/g) || []).length;
+  return Math.max(1, Math.round(cjk / 400 + words / 220));
 }
 
 /*
@@ -451,12 +327,25 @@ function animateCursor() {
   判断逻辑：哪个 section 的顶部已经进入视口上方 42% 以内，就认为当前在这个栏目。
 */
 function updateActiveNav() {
-  const current = [...navLinks].findLast((link) => {
-    const section = document.querySelector(link.getAttribute("href"));
-    return section && section.getBoundingClientRect().top < window.innerHeight * 0.42;
-  });
+  const links = [...navLinks];
+  const atPageBottom =
+    window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
+  const current = atPageBottom
+    ? links[links.length - 1]
+    : links.findLast((link) => {
+        const section = document.querySelector(link.getAttribute("href"));
+        return section && section.getBoundingClientRect().top < window.innerHeight * 0.42;
+      });
 
-  navLinks.forEach((link) => link.classList.toggle("is-active", link === current));
+  navLinks.forEach((link) => {
+    const active = link === current;
+    link.classList.toggle("is-active", active);
+    if (active) {
+      link.setAttribute("aria-current", "location");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  });
 }
 
 function updateHeaderVisibility() {
@@ -506,31 +395,39 @@ function prepareReveal(root = document) {
   }
 }
 
-/*
-  给链接、按钮、卡片绑定 hover 事件。
-  鼠标移入时给 cursor 加 is-hovering 类，CSS 会把鼠标光圈变大。
-*/
-function prepareHover(root = document) {
-  for (const target of root.querySelectorAll("a, button, .note-card, .repo-card, .update-card, .gallery-item, .reader-back")) {
-    if (!observedHoverTargets.has(target)) {
-      observedHoverTargets.add(target);
-      target.addEventListener("pointerenter", () => cursor.classList.add("is-hovering"));
-      target.addEventListener("pointerleave", () => cursor.classList.remove("is-hovering"));
-    }
-  }
-}
-
 // 读取文本文件。这里主要用来读取 .md 内容。
+// 静态服务器偶尔会重置并发连接，所以失败后自动重试两次，避免整栏内容因为一次网络抖动消失。
 async function readText(path) {
   if (textFileCache.has(path)) return textFileCache.get(path);
 
   const separator = path.includes("?") ? "&" : "?";
-  const cacheKey = `${CONTENT_VERSION}-${Date.now()}`;
-  const response = await fetch(`${path}${separator}v=${cacheKey}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Cannot load ${path}`);
-  const text = await response.text();
-  textFileCache.set(path, text);
-  return text;
+  const url = `${path}${separator}v=${CONTENT_VERSION}`;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Cannot load ${path}`);
+      const text = await response.text();
+      textFileCache.set(path, text);
+      return text;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => window.setTimeout(resolve, 120 * (attempt + 1)));
+    }
+  }
+
+  throw lastError;
+}
+
+// 单个文件失败时不让整个栏目失败：返回空字符串，卡片仍然显示标题和日期。
+async function readTextSafe(path) {
+  try {
+    return await readText(path);
+  } catch (error) {
+    console.warn(`读取失败：${path}`, error);
+    return "";
+  }
 }
 
 /*
@@ -542,12 +439,18 @@ async function readText(path) {
 async function loadContentIndex() {
   if (contentIndexCache) return contentIndexCache;
 
+  // content-index.js 已经在页面头部同步加载，优先使用它，少一次网络请求。
+  if (window.BLOG_CONTENT) {
+    contentIndexCache = window.BLOG_CONTENT;
+    return contentIndexCache;
+  }
+
   try {
     contentIndexCache = JSON.parse(await readText("./content/content-index.json"));
     window.BLOG_CONTENT = contentIndexCache;
     return contentIndexCache;
   } catch (error) {
-    console.warn("content-index.json 读取失败，退回使用 content-index.js", error);
+    console.warn("content-index.json 读取失败", error);
   }
 
   contentIndexCache = window.BLOG_CONTENT;
@@ -596,13 +499,14 @@ async function renderRepos() {
   reposData = entries;
   const cards = await Promise.all(
     entries.map(async (entry) => {
-      const markdown = await readText(`./content/repos/${entry.file}`);
+      const markdown = await readTextSafe(`./content/repos/${entry.file}`);
       return `
         <a class="content-link" href="${detailHref("repo", entry.file)}" data-reveal>
           <article class="repo-card">
-            <span>${escapeHtml(entry.status)}</span>
+            <span class="repo-status">${escapeHtml(entry.status)}</span>
             <h3>${escapeHtml(entry.title)}</h3>
             <div class="content-preview">${markdownToPreview(stripFirstHeading(markdown))}</div>
+            <div class="card-cta">阅读全文 <span aria-hidden="true">↗</span></div>
           </article>
         </a>
       `;
@@ -610,18 +514,18 @@ async function renderRepos() {
   );
   container.innerHTML = cards.join("");
 
-  // 因为这些卡片是 JS 后生成的，所以生成后要再补一次 reveal/hover 绑定。
+  // 卡片是 JS 后生成的，生成后要再补一次滚动入场绑定。
   prepareReveal(container);
-  prepareHover(container);
 }
 
 /*
-  渲染笔记：
-  布局是 note-card，标题下方显示 date 和 type。
+  渲染笔记筛选按钮：每个类型后面带上数量，方便一眼看出内容分布。
 */
 function renderNoteFilters(entries) {
   const container = document.querySelector(".note-filters");
   const types = [...new Set(entries.map((entry) => entry.type).filter(Boolean))];
+  const countFor = (value) =>
+    value === "all" ? entries.length : entries.filter((entry) => entry.type === value).length;
   const options = [{ label: "全部", value: "all" }, ...types.map((type) => ({ label: type, value: type }))];
 
   container.innerHTML = options
@@ -629,25 +533,33 @@ function renderNoteFilters(entries) {
       const active = option.value === activeNoteType ? "is-active" : "";
       return `
         <button class="${active}" type="button" data-note-filter="${escapeHtml(option.value)}">
-          ${escapeHtml(option.label)}
+          <span>${escapeHtml(option.label)}</span>
+          <span class="filter-count">${countFor(option.value)}</span>
         </button>
       `;
     })
     .join("");
-
-  prepareHover(container);
 }
 
+/*
+  笔记卡片：日期 / 类型 / 阅读时间放在左栏，标题与摘要放在右栏。
+  这样十则笔记可以像目录一样连续阅读，而不是十张同样大小的卡片。
+*/
 async function renderNoteCards(entries) {
   const container = document.querySelector(".note-grid");
   const cards = await Promise.all(
     entries.map(async (entry) => {
-      const markdown = await readText(`./content/notes/${entry.file}`);
+      const markdown = await readTextSafe(`./content/notes/${entry.file}`);
+      const minutes = readingMinutes(markdown);
       return `
         <a class="content-link" href="${detailHref("note", entry.file)}" data-reveal>
           <article class="note-card">
             <h3>${escapeHtml(entry.title)}</h3>
-            <p class="card-meta">${escapeHtml(entry.date)} / ${escapeHtml(entry.type)}</p>
+            <p class="card-meta">
+              <span class="meta-date">${escapeHtml(entry.date)}</span>
+              ${entry.type ? `<span class="meta-type">${escapeHtml(entry.type)}</span>` : ""}
+              <span class="meta-time">约 ${minutes} 分钟</span>
+            </p>
             <div class="content-preview">${markdownToPreview(stripFirstHeading(markdown), 4)}</div>
           </article>
         </a>
@@ -657,7 +569,6 @@ async function renderNoteCards(entries) {
   container.innerHTML =
     cards.join("") || `<div class="loading-row is-visible" data-reveal>这个类型下暂时没有笔记。</div>`;
   prepareReveal(container);
-  prepareHover(container);
 }
 
 async function renderNotes() {
@@ -678,18 +589,28 @@ async function renderGallery() {
   galleryData = entries;
   const cards = await Promise.all(
     entries.map(async (entry) => {
-      const markdown = stripFrontmatter(await readText(`./content/gallery/${entry.file}`));
+      const markdown = stripFrontmatter(await readTextSafe(`./content/gallery/${entry.file}`));
+      const photoCount = (markdown.match(/^!\[/gm) || []).length;
       const cover = entry.cover || "";
       const coverSrc = cover ? `./content/gallery/${cover}` : "";
       const coverPreviewSrc = coverSrc ? galleryThumbnailSrc(coverSrc) : "";
       return `
         <a class="content-link gallery-item" href="${detailHref("gallery", entry.file)}" data-reveal>
           <figure>
-            ${cover ? `<img src="${escapeHtml(coverPreviewSrc)}" data-fallback-src="${escapeHtml(coverSrc)}" alt="${escapeHtml(entry.title)}" loading="lazy" />` : ""}
+            ${
+              cover
+                ? `<img src="${escapeHtml(coverPreviewSrc)}" data-fallback-src="${escapeHtml(coverSrc)}" alt="${escapeHtml(entry.title)}" loading="lazy" decoding="async" />`
+                : ""
+            }
             <figcaption>
-              <span>${escapeHtml(entry.date)}${entry.place ? ` / ${escapeHtml(entry.place)}` : ""}</span>
+              <div class="gallery-meta">
+                <span>${escapeHtml(entry.date)}</span>
+                <span>${escapeHtml(entry.place || "未标注地点")}</span>
+                ${photoCount ? `<span>${photoCount} 张</span>` : ""}
+              </div>
               <strong>${escapeHtml(entry.title)}</strong>
               <small>${markdownToPreview(stripFirstHeading(markdown), 2)}</small>
+              <span class="gallery-cta">查看相册 <span aria-hidden="true">↗</span></span>
             </figcaption>
           </figure>
         </a>
@@ -698,12 +619,12 @@ async function renderGallery() {
   );
   container.innerHTML = cards.join("");
   prepareReveal(container);
-  prepareHover(container);
 }
 
 /*
   渲染最近更新：
   读取 content/updates 里的 Markdown 历史，生成主页底部的更新卡片。
+  更新日志里的日期标题会被保留，避免只剩下没有时间上下文的条目。
 */
 async function renderUpdates() {
   const container = document.querySelector(".update-grid");
@@ -711,13 +632,14 @@ async function renderUpdates() {
   updatesData = entries;
   const cards = await Promise.all(
     entries.map(async (entry) => {
-      const markdown = await readText(`./content/updates/${entry.file}`);
+      const markdown = await readTextSafe(`./content/updates/${entry.file}`);
       return `
-        <a class="content-link is-visible" href="${detailHref("update", entry.file)}" data-reveal>
+        <a class="content-link" href="${detailHref("update", entry.file)}" data-reveal>
           <article class="update-card">
             <p class="card-meta">${escapeHtml(entry.type)}</p>
             <h3>${escapeHtml(entry.title)}</h3>
-            <div class="content-preview">${markdownToPreview(stripFirstHeading(markdown), 5)}</div>
+            <div class="content-preview">${markdownToPreview(stripFirstHeading(markdown), 6, { dateHeadings: true })}</div>
+            <div class="card-cta">查看更新日志 <span aria-hidden="true">↗</span></div>
           </article>
         </a>
       `;
@@ -725,34 +647,75 @@ async function renderUpdates() {
   );
   container.innerHTML = cards.join("");
   prepareReveal(container);
-  prepareHover(container);
 }
 
+/*
+  统计数字：个人区的三个数字，以及各栏目标题右侧的内容数量。
+*/
 function updateProfileStats() {
-  document.querySelector('[data-stat="repos"]').textContent = String(reposData.length);
-  document.querySelector('[data-stat="notes"]').textContent = String(notesData.length);
-  document.querySelector('[data-stat="gallery"]').textContent = String(galleryData.length);
+  const setText = (selector, value) => {
+    const element = document.querySelector(selector);
+    if (element) element.textContent = value;
+  };
+
+  setText('[data-stat="repos"]', String(reposData.length));
+  setText('[data-stat="notes"]', String(notesData.length));
+  setText('[data-stat="gallery"]', String(galleryData.length));
+
+  const sectionCounts = {
+    notes: notesData.length,
+    repos: reposData.length,
+    gallery: galleryData.length,
+    updates: updatesData.length,
+  };
+
+  for (const [key, value] of Object.entries(sectionCounts)) {
+    setText(`[data-section-count="${key}"]`, String(value).padStart(2, "0"));
+  }
 }
 
-function setReader({ type, title, bodyHtml, backHref }) {
+// 阅读进度：根据详情层自身滚动位置更新顶部 2px 红线。
+function updateReaderProgress() {
+  const reader = document.querySelector("#reader");
+  const bar = reader?.querySelector(".reader-progress span");
+  if (!reader || !bar) return;
+
+  const max = reader.scrollHeight - reader.clientHeight;
+  const progress = max > 0 ? Math.min(1, Math.max(0, reader.scrollTop / max)) : 0;
+  bar.style.transform = `scaleX(${progress})`;
+}
+
+function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   closeImageLightbox({ immediate: true });
   const reader = document.querySelector("#reader");
   const shouldMorphOpen = pendingOpenRect && !prefersReducedMotion();
 
   reader.querySelector(".reader-type").textContent = type;
   reader.querySelector(".reader-title").textContent = title;
+  const metaElement = reader.querySelector(".reader-meta");
+  if (metaElement) metaElement.textContent = meta;
   reader.querySelector(".reader-body").innerHTML = bodyHtml;
   reader.querySelector(".reader-back").setAttribute("href", backHref);
   reader.classList.toggle("is-opening-from-card", Boolean(shouldMorphOpen));
   document.body.classList.add("is-reader-open");
+  document.body.classList.remove("is-header-hidden");
   reader.classList.add("is-open");
   reader.setAttribute("aria-hidden", "false");
-  pauseStarfield();
-  prepareHover(reader);
+  reader.inert = false;
+  if (pageShell) pageShell.inert = true;
+  document.title = `${title} — ${BASE_TITLE}`;
   reader.scrollTop = 0;
+  updateReaderProgress();
+
+  // 把焦点交给标题，屏幕阅读器会先读出文章名；关闭时再回到原来的卡片。
+  const titleElement = reader.querySelector(".reader-title");
+  titleElement.setAttribute("tabindex", "-1");
+  requestAnimationFrame(() => titleElement.focus({ preventScroll: true }));
 
   if (shouldMorphOpen) {
     animateReaderOpen(reader);
+    // 动画异常时的兜底，避免阅读面板一直停在过渡层后面。
+    window.setTimeout(() => reader.classList.remove("is-opening-from-card"), 700);
   } else {
     pendingOpenRect = null;
   }
@@ -760,12 +723,21 @@ function setReader({ type, title, bodyHtml, backHref }) {
 
 function hideReader() {
   const reader = document.querySelector("#reader");
+  const returnLink = currentOpenSource?.href ? findCurrentDetailLink(currentOpenSource.href) : null;
+
   reader.classList.remove("is-opening-from-card");
   reader.classList.remove("is-open");
   reader.setAttribute("aria-hidden", "true");
+  reader.inert = true;
   closeImageLightbox({ immediate: true });
   document.body.classList.remove("is-reader-open");
-  resumeStarfield();
+  document.body.classList.remove("is-header-hidden");
+  if (pageShell) pageShell.inert = false;
+  document.title = BASE_TITLE;
+
+  if (returnLink) {
+    requestAnimationFrame(() => returnLink.focus({ preventScroll: true }));
+  }
 }
 
 function getImageLightbox() {
@@ -774,6 +746,9 @@ function getImageLightbox() {
 
   lightbox = document.createElement("div");
   lightbox.className = "image-lightbox";
+  lightbox.setAttribute("role", "dialog");
+  lightbox.setAttribute("aria-modal", "true");
+  lightbox.setAttribute("aria-label", "查看原图");
   lightbox.setAttribute("aria-hidden", "true");
   lightbox.innerHTML = `
     <div class="image-lightbox__backdrop"></div>
@@ -834,6 +809,11 @@ function openImageLightbox(src, alt = "", sourceButton = null) {
   lightbox.setAttribute("aria-hidden", "false");
   document.body.classList.add("is-lightbox-open");
   source?.classList.add("is-lightbox-source");
+
+  // 灯箱打开时，把阅读层也设为 inert，Tab 不会跑到背后的正文里。
+  const reader = document.querySelector("#reader");
+  if (reader?.classList.contains("is-open")) reader.inert = true;
+
   session.closeButton.focus({ preventScroll: true });
 
   if (!prefersReducedMotion()) {
@@ -863,6 +843,10 @@ function closeImageLightbox({ immediate = false } = {}) {
     session.lightbox.classList.remove("is-open");
     session.lightbox.setAttribute("aria-hidden", "true");
     document.body.classList.remove("is-lightbox-open");
+
+    const reader = document.querySelector("#reader");
+    if (reader?.classList.contains("is-open")) reader.inert = false;
+
     session.source?.classList.remove("is-lightbox-source");
     session.image.removeAttribute("src");
     session.image.alt = "";
@@ -893,6 +877,9 @@ function closeImageLightbox({ immediate = false } = {}) {
   ], 260).then(finish);
 }
 
+// 更新日志的类型在 Markdown 文件名里是 content / template，这里换成中文再展示。
+const UPDATE_TYPE_LABELS = { content: "内容更新", template: "模板更新" };
+
 async function openMarkdownDetail(kind, file) {
   const isNote = kind === "note";
   const isUpdate = kind === "update";
@@ -901,12 +888,26 @@ async function openMarkdownDetail(kind, file) {
   if (!entry) return;
 
   const folder = isNote ? "notes" : isUpdate ? "updates" : "repos";
-  const markdown = await readText(`./content/${folder}/${file}`);
+  const markdown = await readTextSafe(`./content/${folder}/${file}`);
+  const body = markdown
+    ? markdownToHtml(stripFirstHeading(markdown))
+    : "<p>内容暂时无法读取，请刷新页面或重新运行 start-blog.command。</p>";
+
+  let meta = "";
+  if (isNote) {
+    meta = `${entry.date} · ${entry.type} · 约 ${readingMinutes(markdown)} 分钟`;
+  } else if (isUpdate) {
+    meta = `${UPDATE_TYPE_LABELS[entry.type] || entry.type} · 更新日志`;
+  } else {
+    meta = `${entry.status} · 项目记录`;
+  }
+
   setReader({
     type: isNote ? "Note" : isUpdate ? "Update" : "Repository",
     title: entry.title,
+    meta,
     // 详情页顶部已经有 reader-title，这里去掉 Markdown 第一行 H1，避免标题重复显示。
-    bodyHtml: markdownToHtml(stripFirstHeading(markdown)),
+    bodyHtml: body,
     backHref: isNote ? "#notes" : isUpdate ? "#updates" : "#repos",
   });
 }
@@ -915,11 +916,17 @@ async function openGalleryDetail(file) {
   const entry = galleryData.find((item) => item.file === file);
   if (!entry) return;
 
-  const markdown = stripFrontmatter(await readText(`./content/gallery/${file}`));
+  const markdown = stripFrontmatter(await readTextSafe(`./content/gallery/${file}`));
+  const photoCount = (markdown.match(/^!\[/gm) || []).length;
+  const body = markdown
+    ? markdownToHtml(stripFirstHeading(markdown), { imageBasePath: "./content/gallery/" })
+    : "<p>相册内容暂时无法读取，请刷新页面或重新运行 start-blog.command。</p>";
+
   setReader({
     type: "Gallery",
     title: entry.title,
-    bodyHtml: markdownToHtml(stripFirstHeading(markdown), { imageBasePath: "./content/gallery/" }),
+    meta: [entry.date, entry.place, photoCount ? `${photoCount} 张照片` : ""].filter(Boolean).join(" · "),
+    bodyHtml: body,
     backHref: "#gallery",
   });
 }
@@ -1135,6 +1142,9 @@ async function animateReaderClose(backHref, detailHash = window.location.hash, {
   currentOpenSource = null;
   lastDetailHash = "";
   isClosingReader = false;
+
+  // 动画结束后再把焦点还给原卡片；history.back 会重设焦点，所以放在最后一步。
+  if (targetLink?.isConnected) targetLink.focus({ preventScroll: true });
 }
 
 /*
@@ -1173,43 +1183,44 @@ async function renderContent() {
 }
 
 /*
-  监听鼠标移动：
-  1. 更新背景粒子和自定义光标要追踪的 mouse 坐标。
-  2. 如果鼠标在仓库/笔记卡片上，就把鼠标在卡片里的坐标写入 --x / --y。
-     CSS 用这两个变量来决定 hover 光晕的位置。
-  注意：卡片光晕写入用 rAF 节流，避免 pointermove 高频触发重排。
+  点击涟漪：在点击位置生成一圈光，让按下动作也有“液态玻璃”的反馈。
+  光斑会裁切在卡片/按钮自身的圆角里，动画结束后自动移除。
 */
+const TAP_SELECTOR = ".content-link, .button, .note-filters button, .theme-toggle, .reader-back, .primary-nav a";
 
-let glowTicking = false;
-let latestGlowEvent = null;
-
-document.addEventListener("pointermove", (event) => {
-  if (!LOW_POWER_MODE) {
-    lastPointerActivityAt = performance.now();
-    scheduleStarfield();
+function findRippleSurface(target) {
+  if (target.matches(".content-link")) {
+    return target.querySelector(".note-card, .repo-card, .update-card, .gallery-item figure") || target;
   }
-  mouse = { x: event.clientX, y: event.clientY };
+  return target;
+}
 
-  if (LOW_POWER_MODE) return;
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (event.button !== 0 || prefersReducedMotion()) return;
 
-  latestGlowEvent = event;
+    const target = event.target.closest(TAP_SELECTOR);
+    if (!target) return;
 
-  if (glowTicking) return;
-  glowTicking = true;
-  requestAnimationFrame(() => {
-    const e = latestGlowEvent;
-    latestGlowEvent = null;
-    if (e) {
-      const glowTarget = e.target.closest(".repo-card, .note-card, .update-card");
-      if (glowTarget) {
-        const rect = glowTarget.getBoundingClientRect();
-        glowTarget.style.setProperty("--x", `${e.clientX - rect.left}px`);
-        glowTarget.style.setProperty("--y", `${e.clientY - rect.top}px`);
-      }
-    }
-    glowTicking = false;
-  });
-});
+    const surface = findRippleSurface(target);
+    if (!surface) return;
+
+    const rect = surface.getBoundingClientRect();
+    const size = Math.min(620, Math.max(rect.width, rect.height) * 1.05);
+    const ripple = document.createElement("span");
+    ripple.className = "tap-ripple";
+    ripple.setAttribute("aria-hidden", "true");
+    ripple.style.left = `${event.clientX - rect.left - size / 2}px`;
+    ripple.style.top = `${event.clientY - rect.top - size / 2}px`;
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+    surface.append(ripple);
+
+    ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+  },
+  { passive: true }
+);
 
 document.addEventListener("click", (event) => {
   const imageButton = event.target.closest("[data-lightbox-src]");
@@ -1268,15 +1279,17 @@ document.addEventListener(
   (event) => {
     const image = event.target;
     if (!(image instanceof HTMLImageElement)) return;
+
+    // 缩略图 404 时退回原图；只尝试一次，避免死循环。
     const fallbackSrc = image.dataset.fallbackSrc;
-    if (!fallbackSrc || image.src.endsWith(fallbackSrc)) return;
+    if (!fallbackSrc || image.dataset.fallbackApplied) return;
+    image.dataset.fallbackApplied = "1";
     image.src = fallbackSrc;
-    delete image.dataset.fallbackSrc;
   },
   true
 );
 
-// 窗口尺寸变化时重设 canvas；页面滚动时更新导航高亮。
+// 窗口尺寸变化时只处理灯箱尺寸；页面滚动时更新导航高亮。
 window.addEventListener("resize", () => {
   if (imageLightboxSession?.closing) {
     closeImageLightbox({ immediate: true });
@@ -1284,38 +1297,37 @@ window.addEventListener("resize", () => {
     cancelLightboxAnimations(imageLightboxSession);
     sizeLightboxImage(imageLightboxSession);
   }
-  resizeCanvas();
-  scheduleStarfield();
+  updateReaderProgress();
 });
 window.addEventListener("scroll", handlePageScroll, { passive: true });
 window.addEventListener("hashchange", handleRoute);
 window.addEventListener("popstate", handleRoute);
+
+// Esc：先关灯箱，再关阅读层。
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
+  if (event.key !== "Escape") return;
+
+  if (imageLightboxSession) {
     closeImageLightbox();
+    return;
   }
-});
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    pauseStarfield();
-  } else {
-    resumeStarfield();
+
+  if (isReaderOpen()) {
+    const backHref = document.querySelector(".reader-back")?.getAttribute("href") || "#notes";
+    animateReaderClose(backHref);
   }
 });
 
+document.querySelector("#reader")?.addEventListener("scroll", updateReaderProgress, { passive: true });
+
 /*
   初始化顺序：
-  1. 先给 HTML 里已有元素绑定 reveal/hover。
-  2. 设置 canvas 尺寸。
-  3. 启动背景粒子和鼠标光圈动画。
-  4. 更新一次导航状态。
-  5. 读取内容文件并渲染笔记、仓库、相册。
+  1. 确认主题开关状态。
+  2. 给 HTML 里已有元素绑定滚动入场。
+  3. 更新一次导航状态。
+  4. 读取内容文件并渲染笔记、仓库、相册、更新。
 */
+setupThemeToggle();
 prepareReveal();
-prepareHover();
-document.body.classList.toggle("is-low-power", LOW_POWER_MODE);
-resizeCanvas();
-scheduleStarfield();
-animateCursor();
 updateActiveNav();
 renderContent();
