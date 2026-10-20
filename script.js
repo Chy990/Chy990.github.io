@@ -18,7 +18,7 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-37";
+const CONTENT_VERSION = "20261019-54";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -1015,7 +1015,8 @@ function updateReaderProgress() {
 function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   closeImageLightbox({ immediate: true });
   const reader = document.querySelector("#reader");
-  const shouldMorphOpen = pendingOpenRect && !prefersReducedMotion();
+  // 打开时直接显示阅读层，避免先铺一块和卡片同宽的过渡色块。
+  const shouldMorphOpen = false;
 
   reader.querySelector(".reader-type").textContent = type;
   reader.querySelector(".reader-title").textContent = title;
