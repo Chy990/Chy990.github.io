@@ -48,7 +48,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261019-36" />
+    <link rel="stylesheet" href="./styles.css?v=20261019-37" />
   </head>
   <body>
     <!-- 键盘用户可以直接跳过导航，进入正文。 -->
@@ -64,7 +64,7 @@
     <div class="page-progress" aria-hidden="true"></div>
 
     <div class="page-shell">
-      <!-- 顶部导航：品牌 / 一级菜单 / 主题开关。 -->
+      <!-- 顶部导航：品牌 / 一级菜单 / GitHub 与主题开关。 -->
       <header class="site-header">
         <a class="brand" href="#home" aria-label="返回首页">
           <span class="brand-mark" aria-hidden="true"></span>
@@ -80,31 +80,49 @@
           <a href="#profile" data-nav>个人</a>
         </nav>
 
-        <button
-          class="theme-toggle"
-          type="button"
-          aria-label="切换到深色模式"
-          aria-pressed="false"
-          title="切换深色模式"
-        >
-          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.5" />
-            <path
-              d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M20.2 14.6A8.2 8.2 0 0 1 9.4 3.8 8.7 8.7 0 1 0 20.2 14.6Z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+        <div class="header-actions">
+          <a
+            class="github-link"
+            href="https://github.com/Chy990/Chy990.github.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="打开 GitHub 仓库（新标签页）"
+            title="GitHub 仓库"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2.18c-3.2.7-3.88-1.54-3.88-1.54-.52-1.32-1.28-1.67-1.28-1.67-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.25 5.7.41.35.77 1.04.77 2.1v3.11c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5Z"
+              />
+            </svg>
+          </a>
+
+          <button
+            class="theme-toggle"
+            type="button"
+            aria-label="切换到深色模式"
+            aria-pressed="false"
+            title="切换深色模式"
+          >
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.5" />
+              <path
+                d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M20.2 14.6A8.2 8.2 0 0 1 9.4 3.8 8.7 8.7 0 1 0 20.2 14.6Z"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <main id="main">
@@ -319,8 +337,8 @@
     </section>
 
     <!-- 自动生成的内容清单；平时只增删 content 里的文件即可。 -->
-    <script src="./content/content-index.js?v=20261019-36"></script>
+    <script src="./content/content-index.js?v=20261019-37"></script>
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261019-36"></script>
+    <script src="./script.js?v=20261019-37"></script>
   </body>
 </html>

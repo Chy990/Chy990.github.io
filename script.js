@@ -18,7 +18,7 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-36";
+const CONTENT_VERSION = "20261019-37";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
