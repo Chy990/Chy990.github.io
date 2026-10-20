@@ -18,7 +18,7 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-23";
+const CONTENT_VERSION = "20261019-24";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -361,6 +361,24 @@ function setupNavLens() {
   const firstLink = navElement.querySelector("a");
   if (firstLink) setNavLensPosition(firstLink);
 
+  let touchResetTimer = null;
+
+  const clearTouchReset = () => {
+    if (touchResetTimer) {
+      window.clearTimeout(touchResetTimer);
+      touchResetTimer = null;
+    }
+  };
+
+  const scheduleTouchReset = (event) => {
+    if (event.pointerType === "mouse" || !navHoverLink) return;
+    clearTouchReset();
+    touchResetTimer = window.setTimeout(() => {
+      navHoverLink = null;
+      syncNavLens();
+    }, 620);
+  };
+
   navElement.querySelectorAll("a").forEach((link) => {
     link.addEventListener("pointerenter", () => {
       navHoverLink = link;
@@ -368,7 +386,37 @@ function setupNavLens() {
     });
   });
 
-  navElement.addEventListener("pointerleave", () => {
+  // 手指按住/滑过菜单时，药丸跟着手指所在的菜单项走，模拟鼠标悬停。
+  navElement.addEventListener("pointerdown", (event) => {
+    const link = event.target.closest("a");
+    if (!link || !navElement.contains(link)) return;
+    clearTouchReset();
+    navHoverLink = link;
+    syncNavLens();
+  });
+
+  navElement.addEventListener(
+    "pointermove",
+    (event) => {
+      if (event.pointerType === "mouse") return;
+
+      const underFinger = document.elementFromPoint(event.clientX, event.clientY);
+      const link = underFinger?.closest(".primary-nav a");
+      if (!link || !navElement.contains(link) || link === navHoverLink) return;
+
+      clearTouchReset();
+      navHoverLink = link;
+      syncNavLens();
+    },
+    { passive: true }
+  );
+
+  document.addEventListener("pointerup", scheduleTouchReset, { passive: true });
+  document.addEventListener("pointercancel", scheduleTouchReset, { passive: true });
+
+  // 鼠标离开导航时回到当前栏目；触屏的收尾交给上面的定时器。
+  navElement.addEventListener("pointerleave", (event) => {
+    if (event.pointerType !== "mouse") return;
     navHoverLink = null;
     syncNavLens();
   });

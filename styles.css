@@ -2542,8 +2542,10 @@ body.is-reader-open::before {
   .primary-nav {
     grid-column: 1 / -1;
     grid-row: 2;
-    justify-self: stretch;
-    justify-content: flex-start;
+    justify-self: center;
+    justify-content: center;
+    width: max-content;
+    max-width: 100%;
     gap: 2px;
     overflow-x: auto;
     padding: 4px;
