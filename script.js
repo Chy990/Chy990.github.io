@@ -18,7 +18,7 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-24";
+const CONTENT_VERSION = "20261019-27";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -37,6 +37,7 @@ let lastScrollY = window.scrollY;
 let activeNoteType = "all";
 let navHoverLink = null;
 let navLensTarget = null;
+let navTracking = false;
 let imageLightboxSession = null;
 
 function prefersReducedMotion() {
@@ -336,8 +337,50 @@ function setNavLensPosition(link) {
   navLensElement.style.setProperty("--lens-w", `${link.offsetWidth}px`);
 }
 
-function syncNavLens(force = false) {
+/*
+  触屏拖动时药丸不被“吸附”到某个菜单项，而是以手指为中心连续移动。
+  宽度仍然取最近菜单项的宽度，文字缩放也落到最近项上。
+*/
+function setNavLensTracking(clientX) {
   if (!navElement || !navLensElement) return;
+
+  const links = [...navElement.querySelectorAll("a")];
+  if (!links.length) return;
+
+  let nearest = links[0];
+  let nearestDistance = Infinity;
+
+  for (const link of links) {
+    const rect = link.getBoundingClientRect();
+    const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = link;
+    }
+  }
+
+  if (nearest !== navHoverLink) {
+    navHoverLink = nearest;
+    navLinks.forEach((link) => link.classList.toggle("is-lens-target", link === nearest));
+  }
+
+  const width = nearest.offsetWidth;
+  const navRect = navElement.getBoundingClientRect();
+  const localX = clientX - navRect.left - navElement.clientLeft;
+  const firstLink = links[0];
+  const lastLink = links[links.length - 1];
+  const minX = firstLink.offsetLeft;
+  const maxX = lastLink.offsetLeft + lastLink.offsetWidth - width;
+  const left = Math.min(maxX, Math.max(minX, localX - width / 2));
+
+  navLensElement.style.setProperty("--lens-x", `${left}px`);
+  navLensElement.style.setProperty("--lens-w", `${width}px`);
+  navLensElement.classList.add("is-visible", "is-tracking");
+  navLensTarget = null;
+}
+
+function syncNavLens(force = false) {
+  if (!navElement || !navLensElement || navTracking) return;
 
   const target = navHoverLink || navElement.querySelector("a.is-active");
   if (!force && target === navLensTarget) return;
@@ -355,6 +398,23 @@ function syncNavLens(force = false) {
   navLensElement.classList.add("is-visible");
 }
 
+function navigateNavLink(link) {
+  const href = link.getAttribute("href");
+  if (!href || !href.startsWith("#")) return;
+
+  if (window.location.hash !== href) {
+    history.pushState(null, "", href);
+  }
+
+  const target = document.querySelector(href);
+  if (target) {
+    target.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start",
+    });
+  }
+}
+
 function setupNavLens() {
   if (!navElement || !navLensElement) return;
 
@@ -362,6 +422,8 @@ function setupNavLens() {
   if (firstLink) setNavLensPosition(firstLink);
 
   let touchResetTimer = null;
+  let touchState = null;
+  let suppressNavClickUntil = 0;
 
   const clearTouchReset = () => {
     if (touchResetTimer) {
@@ -370,49 +432,125 @@ function setupNavLens() {
     }
   };
 
-  const scheduleTouchReset = (event) => {
-    if (event.pointerType === "mouse" || !navHoverLink) return;
+  const scheduleTouchReset = () => {
     clearTouchReset();
     touchResetTimer = window.setTimeout(() => {
       navHoverLink = null;
       syncNavLens();
-    }, 620);
+    }, 1000);
   };
 
   navElement.querySelectorAll("a").forEach((link) => {
     link.addEventListener("pointerenter", () => {
+      if (navTracking) return;
       navHoverLink = link;
       syncNavLens();
     });
   });
 
-  // 手指按住/滑过菜单时，药丸跟着手指所在的菜单项走，模拟鼠标悬停。
   navElement.addEventListener("pointerdown", (event) => {
+    // 新的一次按下意味着上一次拖动已经结束，不再拦截新的 click。
+    suppressNavClickUntil = 0;
+
+    if (event.pointerType === "mouse" || event.button !== 0 || touchState) return;
+
     const link = event.target.closest("a");
     if (!link || !navElement.contains(link)) return;
+
     clearTouchReset();
+    touchState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+      link,
+    };
+
+    navTracking = false;
     navHoverLink = link;
-    syncNavLens();
+    navLinks.forEach((item) => item.classList.toggle("is-lens-target", item === link));
+    setNavLensPosition(link);
+    navLensElement.classList.remove("is-tracking");
+    navLensElement.classList.add("is-visible");
   });
 
   navElement.addEventListener(
     "pointermove",
     (event) => {
-      if (event.pointerType === "mouse") return;
+      if (!touchState || event.pointerId !== touchState.pointerId || event.pointerType === "mouse") {
+        return;
+      }
 
-      const underFinger = document.elementFromPoint(event.clientX, event.clientY);
-      const link = underFinger?.closest(".primary-nav a");
-      if (!link || !navElement.contains(link) || link === navHoverLink) return;
+      const dx = event.clientX - touchState.startX;
+      const dy = event.clientY - touchState.startY;
 
-      clearTouchReset();
-      navHoverLink = link;
-      syncNavLens();
+      // 只把明显的横向拖动当成“在菜单里滑”，纵向仍然是正常滚动页面。
+      if (!touchState.moved) {
+        if (Math.abs(dx) < 5 || Math.abs(dx) <= Math.abs(dy)) return;
+        touchState.moved = true;
+        navTracking = true;
+        navLensElement.classList.add("is-tracking");
+      }
+
+      setNavLensTracking(event.clientX);
     },
     { passive: true }
   );
 
-  document.addEventListener("pointerup", scheduleTouchReset, { passive: true });
-  document.addEventListener("pointercancel", scheduleTouchReset, { passive: true });
+  const endTouch = (event) => {
+    if (!touchState || event.pointerId !== touchState.pointerId || event.pointerType === "mouse") {
+      return;
+    }
+
+    const state = touchState;
+    touchState = null;
+
+    if (navTracking) {
+      navTracking = false;
+      navLensElement.classList.remove("is-tracking");
+
+      if (state.moved && navHoverLink) {
+        // 拖动结束后手动跳到选中的栏目，并吞掉随后浏览器可能补发的那次 click。
+        suppressNavClickUntil = performance.now() + 650;
+        navigateNavLink(navHoverLink);
+      }
+
+      syncNavLens(true);
+      scheduleTouchReset();
+      return;
+    }
+
+    // 普通点按：交给原生 click 完成跳转。
+    navLensElement.classList.remove("is-tracking");
+    syncNavLens(true);
+    scheduleTouchReset();
+  };
+
+  const cancelTouch = (event) => {
+    if (!touchState || event.pointerId !== touchState.pointerId) return;
+
+    touchState = null;
+    navTracking = false;
+    navLensElement.classList.remove("is-tracking");
+    navHoverLink = null;
+    syncNavLens(true);
+  };
+
+  document.addEventListener("pointerup", endTouch, { passive: true });
+  document.addEventListener("pointercancel", cancelTouch, { passive: true });
+
+  // 拖动结束后浏览器偶尔还会补发一次 click，短暂拦截，避免重复跳转。
+  navElement.addEventListener(
+    "click",
+    (event) => {
+      if (performance.now() >= suppressNavClickUntil) return;
+      const link = event.target.closest("a");
+      if (!link) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true
+  );
 
   // 鼠标离开导航时回到当前栏目；触屏的收尾交给上面的定时器。
   navElement.addEventListener("pointerleave", (event) => {

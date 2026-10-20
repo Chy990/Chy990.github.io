@@ -432,9 +432,12 @@ body.is-header-hidden .site-header {
   justify-self: center;
   gap: 2px;
   padding: 4px;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-y;
   border: 1px solid var(--rule);
   border-radius: var(--radius-pill);
-  background: var(--glass);
+  background: var(--nav-track-bg);
   box-shadow: var(--glass-highlight);
 }
 
@@ -466,6 +469,11 @@ body.is-header-hidden .site-header {
 .nav-lens.is-visible {
   opacity: 1;
   transform: translateX(var(--lens-x, 0)) scale(1);
+}
+
+/* 手指拖动时取消过渡，药丸直接跟手。 */
+.nav-lens.is-tracking {
+  transition: none;
 }
 
 .primary-nav a {
