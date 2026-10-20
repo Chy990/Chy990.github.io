@@ -241,6 +241,19 @@ button {
   margin-inline: auto;
 }
 
+/* 只给屏幕阅读器看的说明，不参与视觉排版。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* 键盘跳转链接：平时藏在屏幕外，聚焦时出现。 */
 .skip-link {
   position: fixed;
@@ -531,7 +544,7 @@ body.is-header-hidden .site-header {
   align-items: center;
   gap: clamp(36px, 6vw, 84px);
   min-height: calc(100svh - 300px);
-  padding: clamp(32px, 4vw, 56px) 0 clamp(28px, 3.5vw, 44px);
+  padding: clamp(24px, 3vw, 40px) 0 clamp(22px, 3vw, 32px);
 }
 
 .hero-copy {
@@ -566,6 +579,163 @@ h1 em {
   box-decoration-break: clone;
 }
 
+/* 第二句和第一句之间留一点“换气”，但不把标题撑得太散。 */
+.hero-line--sentence {
+  margin-top: 0.16em;
+}
+
+/*
+  “耐操”是一个带注释的词：
+  - 右上角的小 i 是入口
+  - 悬停 / 聚焦 / 点击后浮出一张定义卡
+  - 手机上点击 i 或词本身也能打开，点空白处关闭
+*/
+.term-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.term {
+  position: relative;
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  cursor: help;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.term-word {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.12em;
+  transition: text-decoration-style 180ms ease;
+}
+
+.term:hover .term-word,
+.term:focus-visible .term-word {
+  text-decoration-style: solid;
+}
+
+.term-badge {
+  position: absolute;
+  top: -0.12em;
+  right: -0.34em;
+  display: grid;
+  place-items: center;
+  width: clamp(18px, 0.2em, 22px);
+  height: clamp(18px, 0.2em, 22px);
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 0.13em, 13px);
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    transform 280ms var(--ease-spring),
+    background-color 220ms ease,
+    color 220ms ease;
+}
+
+.term:hover .term-badge,
+.term:focus-visible .term-badge,
+.term[aria-expanded="true"] .term-badge {
+  background: var(--accent);
+  color: var(--accent-ink);
+  transform: scale(1.12) rotate(-6deg);
+}
+
+.term-tip {
+  position: absolute;
+  bottom: calc(100% + 18px);
+  left: 50%;
+  z-index: 40;
+  width: min(330px, 78vw);
+  padding: 16px 18px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--reader-bg);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.75;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, 8px) scale(0.97);
+  transform-origin: 50% 100%;
+  transition:
+    opacity 220ms ease,
+    transform 320ms var(--ease-spring),
+    visibility 220ms;
+}
+
+.term-tip::after {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--reader-bg);
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.term-wrap:hover .term-tip,
+.term:focus-visible + .term-tip,
+.term[aria-expanded="true"] + .term-tip {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.term-tip-label,
+.term-tip-text,
+.term-tip-foot {
+  display: block;
+}
+
+.term-tip-label {
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.term-tip-text {
+  color: var(--ink-2);
+}
+
+.term-tip-foot {
+  margin-top: 10px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-align: right;
+}
+
+
 .hero-text {
   max-width: 33em;
   margin-bottom: 0;
@@ -580,7 +750,7 @@ h1 em {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 38px;
+  margin-top: 32px;
 }
 
 .button {
@@ -657,7 +827,7 @@ h1 em {
   display: flex;
   flex-wrap: wrap;
   gap: 0;
-  margin: 56px 0 0;
+  margin: 40px 0 0;
   color: var(--faint);
   font-family: var(--font-mono);
   font-size: 9px;
@@ -2350,7 +2520,7 @@ body.is-reader-open::before {
 
   .hero {
     gap: 28px;
-    padding: 26px 0 40px;
+    padding: 20px 0 34px;
   }
 
   .hero-eyebrow {
@@ -2379,6 +2549,21 @@ body.is-reader-open::before {
   .hero-text {
     font-size: 15.5px;
     line-height: 1.85;
+  }
+
+  .term-tip {
+    width: min(320px, calc(100vw - 48px));
+    transform: translate(calc(-50% + 44px), 8px) scale(0.97);
+  }
+
+  .term-tip::after {
+    left: calc(50% - 44px);
+  }
+
+  .term-wrap:hover .term-tip,
+  .term:focus-visible + .term-tip,
+  .term[aria-expanded="true"] + .term-tip {
+    transform: translate(calc(-50% + 44px), 0) scale(1);
   }
 
   .hero-actions {

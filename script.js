@@ -16,7 +16,7 @@ document.documentElement.classList.add("js");
 
 const navLinks = document.querySelectorAll("[data-nav]");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-15";
+const CONTENT_VERSION = "20261019-17";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -1222,6 +1222,30 @@ document.addEventListener(
   { passive: true }
 );
 
+/*
+  “耐操”的注释卡：桌面悬停由 CSS 负责，
+  这里补上点击切换和点击空白/按 Esc 关闭，方便触屏和键盘。
+*/
+function setupTermTip() {
+  const term = document.querySelector(".term");
+  if (!term) return;
+
+  const close = () => term.setAttribute("aria-expanded", "false");
+
+  term.addEventListener("click", (event) => {
+    event.preventDefault();
+    term.setAttribute("aria-expanded", String(term.getAttribute("aria-expanded") !== "true"));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".term-wrap")) close();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") close();
+  });
+}
+
 document.addEventListener("click", (event) => {
   const imageButton = event.target.closest("[data-lightbox-src]");
   if (imageButton) {
@@ -1328,6 +1352,7 @@ document.querySelector("#reader")?.addEventListener("scroll", updateReaderProgre
   4. 读取内容文件并渲染笔记、仓库、相册、更新。
 */
 setupThemeToggle();
+setupTermTip();
 prepareReveal();
 updateActiveNav();
 renderContent();
