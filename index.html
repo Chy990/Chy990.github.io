@@ -50,7 +50,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261019-17" />
+    <link rel="stylesheet" href="./styles.css?v=20261019-23" />
   </head>
   <body>
     <!-- 键盘用户可以直接跳过导航，进入正文。 -->
@@ -74,6 +74,7 @@
         </a>
 
         <nav class="primary-nav" aria-label="一级菜单">
+          <span class="nav-lens" aria-hidden="true"></span>
           <a href="#notes" data-nav>笔记</a>
           <a href="#repos" data-nav>仓库</a>
           <a href="#gallery" data-nav>相册</a>
@@ -320,8 +321,8 @@
     </section>
 
     <!-- 自动生成的内容清单；平时只增删 content 里的文件即可。 -->
-    <script src="./content/content-index.js?v=20261019-17"></script>
+    <script src="./content/content-index.js?v=20261019-23"></script>
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261019-17"></script>
+    <script src="./script.js?v=20261019-23"></script>
   </body>
 </html>

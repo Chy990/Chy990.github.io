@@ -50,6 +50,12 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     inset 0 -1px 0 rgba(255, 255, 255, 0.2);
   --glass-shadow: 0 24px 60px -34px rgba(46, 35, 24, 0.5);
+  --nav-track-bg: rgba(23, 21, 15, 0.07);
+  --nav-lens-bg: linear-gradient(180deg, #fffefb, #f6efe3);
+  --nav-lens-border: rgba(23, 21, 15, 0.13);
+  --nav-lens-shadow:
+    0 9px 18px -10px rgba(46, 35, 24, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
   --ripple: rgba(23, 21, 15, 0.26);
   --reader-bg: rgba(247, 244, 236, 0.985);
   --reader-scrim: rgba(23, 21, 15, 0.44);
@@ -101,6 +107,12 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35);
   --glass-shadow: 0 26px 60px -28px rgba(0, 0, 0, 0.8);
+  --nav-track-bg: rgba(0, 0, 0, 0.3);
+  --nav-lens-bg: linear-gradient(180deg, rgba(82, 75, 64, 0.98), rgba(51, 46, 39, 0.94));
+  --nav-lens-border: rgba(255, 255, 255, 0.22);
+  --nav-lens-shadow:
+    0 9px 22px -10px rgba(0, 0, 0, 0.82),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
   --ripple: rgba(255, 255, 255, 0.34);
   --reader-bg: rgba(22, 20, 17, 0.985);
   --reader-scrim: rgba(0, 0, 0, 0.64);
@@ -135,6 +147,12 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.18),
       inset 0 -1px 0 rgba(0, 0, 0, 0.35);
     --glass-shadow: 0 26px 60px -28px rgba(0, 0, 0, 0.8);
+    --nav-track-bg: rgba(0, 0, 0, 0.3);
+    --nav-lens-bg: linear-gradient(180deg, rgba(82, 75, 64, 0.98), rgba(51, 46, 39, 0.94));
+    --nav-lens-border: rgba(255, 255, 255, 0.22);
+    --nav-lens-shadow:
+      0 9px 22px -10px rgba(0, 0, 0, 0.82),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
     --ripple: rgba(255, 255, 255, 0.34);
     --reader-bg: rgba(22, 20, 17, 0.985);
     --reader-scrim: rgba(0, 0, 0, 0.64);
@@ -407,6 +425,8 @@ body.is-header-hidden .site-header {
 }
 
 .primary-nav {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-self: center;
@@ -418,18 +438,53 @@ body.is-header-hidden .site-header {
   box-shadow: var(--glass-highlight);
 }
 
+/*
+  菜单的液态药丸：只在 .primary-nav 内部存在。
+  一个药丸在五个菜单项之间滑动，宽度也跟着目标项变化。
+*/
+.nav-lens {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  z-index: 0;
+  width: var(--lens-w, 0);
+  height: calc(100% - 8px);
+  border: 1px solid var(--nav-lens-border);
+  border-radius: var(--radius-pill);
+  background: var(--nav-lens-bg);
+  box-shadow: var(--nav-lens-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(var(--lens-x, 0)) scale(0.94);
+  transform-origin: center;
+  transition:
+    width 520ms var(--ease-spring),
+    transform 520ms var(--ease-spring),
+    opacity 220ms ease;
+}
+
+.nav-lens.is-visible {
+  opacity: 1;
+  transform: translateX(var(--lens-x, 0)) scale(1);
+}
+
 .primary-nav a {
   position: relative;
+  z-index: 1;
   padding: 7px 14px;
   border-radius: var(--radius-pill);
   color: var(--muted);
   font-size: 13.5px;
   letter-spacing: 0.05em;
+  transform-origin: center;
   transition:
     color 220ms ease,
-    background-color 260ms ease,
-    box-shadow 260ms ease,
-    transform 260ms var(--ease-liquid);
+    transform 360ms var(--ease-spring);
+}
+
+/* 药丸落在哪一项，哪一项的文字就像被放大镜轻轻放大。 */
+.primary-nav a.is-lens-target {
+  transform: scale(1.12);
 }
 
 .primary-nav a::after {
@@ -437,15 +492,10 @@ body.is-header-hidden .site-header {
 }
 
 .primary-nav a:hover {
-  background: var(--glass-strong);
-  box-shadow: var(--glass-highlight);
   color: var(--ink);
-  transform: translateY(-1px);
 }
 
 .primary-nav a.is-active {
-  background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 10px 24px -20px rgba(46, 35, 24, 0.5);
   color: var(--ink);
   font-weight: 600;
 }

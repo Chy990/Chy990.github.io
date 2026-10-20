@@ -15,8 +15,10 @@
 document.documentElement.classList.add("js");
 
 const navLinks = document.querySelectorAll("[data-nav]");
+const navElement = document.querySelector(".primary-nav");
+const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-17";
+const CONTENT_VERSION = "20261019-23";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -33,6 +35,8 @@ let contentIndexCache = null;
 let textFileCache = new Map();
 let lastScrollY = window.scrollY;
 let activeNoteType = "all";
+let navHoverLink = null;
+let navLensTarget = null;
 let imageLightboxSession = null;
 
 function prefersReducedMotion() {
@@ -323,6 +327,72 @@ function readingMinutes(markdown) {
 }
 
 /*
+  顶部菜单的液态药丸。
+  它只在 .primary-nav 内工作：默认停在当前栏目上，鼠标进入哪个菜单项就滑到哪。
+*/
+function setNavLensPosition(link) {
+  if (!navLensElement || !link) return;
+  navLensElement.style.setProperty("--lens-x", `${link.offsetLeft}px`);
+  navLensElement.style.setProperty("--lens-w", `${link.offsetWidth}px`);
+}
+
+function syncNavLens(force = false) {
+  if (!navElement || !navLensElement) return;
+
+  const target = navHoverLink || navElement.querySelector("a.is-active");
+  if (!force && target === navLensTarget) return;
+
+  navLensTarget = target;
+
+  if (!target) {
+    navLinks.forEach((link) => link.classList.remove("is-lens-target"));
+    navLensElement.classList.remove("is-visible");
+    return;
+  }
+
+  navLinks.forEach((link) => link.classList.toggle("is-lens-target", link === target));
+  setNavLensPosition(target);
+  navLensElement.classList.add("is-visible");
+}
+
+function setupNavLens() {
+  if (!navElement || !navLensElement) return;
+
+  const firstLink = navElement.querySelector("a");
+  if (firstLink) setNavLensPosition(firstLink);
+
+  navElement.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("pointerenter", () => {
+      navHoverLink = link;
+      syncNavLens();
+    });
+  });
+
+  navElement.addEventListener("pointerleave", () => {
+    navHoverLink = null;
+    syncNavLens();
+  });
+
+  navElement.addEventListener("focusin", (event) => {
+    const link = event.target.closest("a");
+    if (!link) return;
+    navHoverLink = link;
+    syncNavLens();
+  });
+
+  navElement.addEventListener("focusout", (event) => {
+    if (navElement.contains(event.relatedTarget)) return;
+    navHoverLink = null;
+    syncNavLens();
+  });
+
+  // 字体加载完成后重新量一次宽度。
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(() => syncNavLens(true)).catch(() => {});
+  }
+}
+
+/*
   根据当前滚动位置高亮顶部导航。
   判断逻辑：哪个 section 的顶部已经进入视口上方 42% 以内，就认为当前在这个栏目。
 */
@@ -346,6 +416,8 @@ function updateActiveNav() {
       link.removeAttribute("aria-current");
     }
   });
+
+  syncNavLens();
 }
 
 function updateHeaderVisibility() {
@@ -1322,6 +1394,7 @@ window.addEventListener("resize", () => {
     sizeLightboxImage(imageLightboxSession);
   }
   updateReaderProgress();
+  syncNavLens(true);
 });
 window.addEventListener("scroll", handlePageScroll, { passive: true });
 window.addEventListener("hashchange", handleRoute);
@@ -1353,6 +1426,7 @@ document.querySelector("#reader")?.addEventListener("scroll", updateReaderProgre
 */
 setupThemeToggle();
 setupTermTip();
+setupNavLens();
 prepareReveal();
 updateActiveNav();
 renderContent();
