@@ -18,7 +18,7 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
-const CONTENT_VERSION = "20261019-54";
+const CONTENT_VERSION = "20261021-57";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。
@@ -27,8 +27,8 @@ let notesData = [];
 let reposData = [];
 let galleryData = [];
 let updatesData = [];
-let pendingOpenRect = null;
 let currentOpenSource = null;
+let readerMotion = null;
 let lastDetailHash = "";
 let isClosingReader = false;
 let contentIndexCache = null;
@@ -347,10 +347,30 @@ function readingMinutes(markdown) {
   顶部菜单的液态药丸。
   它只在 .primary-nav 内工作：默认停在当前栏目上，鼠标进入哪个菜单项就滑到哪。
 */
+/*
+  导航项的 offsetLeft / offsetWidth 只在窗口尺寸或字体变化时才会变。
+  缓存起来，滚动回调里就不用读这些会触发布局的属性。
+*/
+let navLinkMetrics = [];
+
+function measureNavLinks() {
+  navLinkMetrics = [...navLinks].map((link) => ({
+    link,
+    left: link.offsetLeft,
+    width: link.offsetWidth,
+  }));
+}
+
+function navLinkMetric(link) {
+  return navLinkMetrics.find((item) => item.link === link) || null;
+}
+
 function setNavLensPosition(link) {
   if (!navLensElement || !link) return;
-  navLensElement.style.setProperty("--lens-x", `${link.offsetLeft}px`);
-  navLensElement.style.setProperty("--lens-w", `${link.offsetWidth}px`);
+  const metric = navLinkMetric(link);
+  if (!metric) return;
+  navLensElement.style.setProperty("--lens-x", `${metric.left}px`);
+  navLensElement.style.setProperty("--lens-w", `${metric.width}px`);
 }
 
 /*
@@ -380,13 +400,14 @@ function setNavLensTracking(clientX) {
     navLinks.forEach((link) => link.classList.toggle("is-lens-target", link === nearest));
   }
 
-  const width = nearest.offsetWidth;
+  const nearestMetric = navLinkMetric(nearest);
+  const width = nearestMetric ? nearestMetric.width : nearest.offsetWidth;
   const navRect = navElement.getBoundingClientRect();
   const localX = clientX - navRect.left - navElement.clientLeft;
-  const firstLink = links[0];
-  const lastLink = links[links.length - 1];
-  const minX = firstLink.offsetLeft;
-  const maxX = lastLink.offsetLeft + lastLink.offsetWidth - width;
+  const firstMetric = navLinkMetric(links[0]);
+  const lastMetric = navLinkMetric(links[links.length - 1]);
+  const minX = firstMetric ? firstMetric.left : 0;
+  const maxX = lastMetric ? lastMetric.left + lastMetric.width - width : localX;
   const left = Math.min(maxX, Math.max(minX, localX - width / 2));
 
   navLensElement.style.setProperty("--lens-x", `${left}px`);
@@ -475,6 +496,9 @@ function pinNavLens(link) {
 
 function setupNavLens() {
   if (!navElement || !navLensElement) return;
+
+  // 先把每个菜单项的位置和宽度量一遍并缓存，后面滚动时就不用再读布局。
+  measureNavLinks();
 
   const firstLink = navElement.querySelector("a");
   if (firstLink) setNavLensPosition(firstLink);
@@ -642,26 +666,65 @@ function setupNavLens() {
 
   // 字体加载完成后重新量一次宽度。
   if (document.fonts?.ready) {
-    document.fonts.ready.then(() => syncNavLens(true)).catch(() => {});
+    document.fonts.ready.then(() => {
+      measureNavLinks();
+      syncNavLens(true);
+    }).catch(() => {});
   }
 }
 
 /*
   根据当前滚动位置高亮顶部导航。
   判断逻辑：哪个 section 的顶部已经进入视口上方 42% 以内，就认为当前在这个栏目。
-*/
-function updateActiveNav() {
-  const links = [...navLinks];
-  const atPageBottom =
-    window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
-  const actualCurrent = atPageBottom
-    ? links[links.length - 1]
-    : links.findLast((link) => {
-        const section = document.querySelector(link.getAttribute("href"));
-        return section && section.getBoundingClientRect().top < window.innerHeight * 0.42;
-      });
-  const current = navPinnedLink || actualCurrent;
 
+  性能注意：这段代码在滚动过程中会频繁执行，所以
+  - section 节点只查一次并缓存，不在回调里反复 querySelector；
+  - 文档高度用 ResizeObserver 维护，不再每帧读 scrollHeight；
+  - 先读完所有几何信息，再统一改 class，避免 read → write → read 触发强制同步布局。
+*/
+const navSections = [];
+let documentHeight = 0;
+
+function cacheNavSections() {
+  navSections.length = 0;
+  for (const link of navLinks) {
+    const href = link.getAttribute("href");
+    const section = href ? document.querySelector(href) : null;
+    if (section) navSections.push({ link, section });
+  }
+}
+
+if (typeof ResizeObserver === "function") {
+  // 内容渲染、图片加载都会改变页面高度，这里保持缓存是最新的。
+  new ResizeObserver(() => {
+    documentHeight = document.documentElement.scrollHeight;
+  }).observe(document.documentElement);
+}
+
+function updateActiveNav() {
+  if (!navSections.length) cacheNavSections();
+  if (!navSections.length) return;
+
+  // 读阶段：一次性取完所有需要的几何信息
+  const scrollY = window.scrollY;
+  const viewportHeight = window.innerHeight;
+  const pageHeight = documentHeight || document.documentElement.scrollHeight;
+  const atPageBottom = scrollY + viewportHeight >= pageHeight - 4;
+
+  let actualCurrent = null;
+  if (atPageBottom) {
+    actualCurrent = navSections[navSections.length - 1].link;
+  } else {
+    for (let i = navSections.length - 1; i >= 0; i -= 1) {
+      if (navSections[i].section.getBoundingClientRect().top < viewportHeight * 0.42) {
+        actualCurrent = navSections[i].link;
+        break;
+      }
+    }
+  }
+
+  // 写阶段
+  const current = navPinnedLink || actualCurrent;
   setActiveNavLink(current);
 
   if (navPinnedLink && actualCurrent === navPinnedLink) {
@@ -690,9 +753,16 @@ function updateHeaderVisibility() {
   lastScrollY = currentScrollY;
 }
 
+// 滚动事件本身可能是每帧多次触发，这里合并到下一帧统一处理。
+let scrollFrameId = 0;
+
 function handlePageScroll() {
-  updateActiveNav();
-  updateHeaderVisibility();
+  if (scrollFrameId) return;
+  scrollFrameId = window.requestAnimationFrame(() => {
+    scrollFrameId = 0;
+    updateActiveNav();
+    updateHeaderVisibility();
+  });
 }
 
 /*
@@ -1015,16 +1085,23 @@ function updateReaderProgress() {
 function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   closeImageLightbox({ immediate: true });
   const reader = document.querySelector("#reader");
-  // 打开时直接显示阅读层，避免先铺一块和卡片同宽的过渡色块。
-  const shouldMorphOpen = false;
+  const wasOpen = isReaderOpen();
+  // 先量卡片位置：随后锁定页面滚动可能让布局有极小的横向变化。
+  // 点击进入时用被点的卡片；前进/后退或刷新恢复详情时，按 hash 找回对应卡片。
+  const sourceLink =
+    (currentOpenSource?.link?.isConnected ? currentOpenSource.link : null) ||
+    findCurrentDetailLink(window.location.hash);
+  const sourceRect = sourceLink ? sourceLink.getBoundingClientRect() : null;
 
   reader.querySelector(".reader-type").textContent = type;
   reader.querySelector(".reader-title").textContent = title;
   const metaElement = reader.querySelector(".reader-meta");
   if (metaElement) metaElement.textContent = meta;
-  reader.querySelector(".reader-body").innerHTML = bodyHtml;
+  // 最后一道兜底：任何情况下都不把阅读区写成纯空白。
+  const safeBodyHtml = bodyHtml?.trim() ? bodyHtml : "<p>这篇内容暂时没有正文。</p>";
+  if (!bodyHtml?.trim()) console.warn("阅读层正文为空", { type, title });
+  reader.querySelector(".reader-body").innerHTML = safeBodyHtml;
   reader.querySelector(".reader-back").setAttribute("href", backHref);
-  reader.classList.toggle("is-opening-from-card", Boolean(shouldMorphOpen));
   document.body.classList.add("is-reader-open");
   document.body.classList.remove("is-header-hidden");
   reader.classList.add("is-open");
@@ -1040,20 +1117,14 @@ function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   titleElement.setAttribute("tabindex", "-1");
   requestAnimationFrame(() => titleElement.focus({ preventScroll: true }));
 
-  if (shouldMorphOpen) {
-    animateReaderOpen(reader);
-    // 动画异常时的兜底，避免阅读面板一直停在过渡层后面。
-    window.setTimeout(() => reader.classList.remove("is-opening-from-card"), 700);
-  } else {
-    pendingOpenRect = null;
-  }
+  if (!wasOpen) animateReaderTransition(reader, true, { sourceLink, sourceRect });
 }
 
-function hideReader() {
+function hideReader({ restoreFocus = true } = {}) {
   const reader = document.querySelector("#reader");
   const returnLink = currentOpenSource?.href ? findCurrentDetailLink(currentOpenSource.href) : null;
 
-  reader.classList.remove("is-opening-from-card");
+  cancelReaderMotion();
   reader.classList.remove("is-open");
   reader.setAttribute("aria-hidden", "true");
   reader.inert = true;
@@ -1063,7 +1134,7 @@ function hideReader() {
   if (pageShell) pageShell.inert = false;
   document.title = BASE_TITLE;
 
-  if (returnLink) {
+  if (restoreFocus && returnLink) {
     requestAnimationFrame(() => returnLink.focus({ preventScroll: true }));
   }
 }
@@ -1208,12 +1279,12 @@ function closeImageLightbox({ immediate = false } = {}) {
 // 更新日志的类型在 Markdown 文件名里是 content / template，这里换成中文再展示。
 const UPDATE_TYPE_LABELS = { content: "内容更新", template: "模板更新" };
 
-async function openMarkdownDetail(kind, file) {
+async function openMarkdownDetail(kind, file, isCurrent = () => true) {
   const isNote = kind === "note";
   const isUpdate = kind === "update";
   const entries = isNote ? notesData : isUpdate ? updatesData : reposData;
   const entry = entries.find((item) => item.file === file);
-  if (!entry) return;
+  if (!entry) return false;
 
   const folder = isNote ? "notes" : isUpdate ? "updates" : "repos";
   const markdown = await readTextSafe(`./content/${folder}/${file}`);
@@ -1230,19 +1301,25 @@ async function openMarkdownDetail(kind, file) {
     meta = `${entry.status} · 项目记录`;
   }
 
+  // 读取或解析失败时也保证详情页有一行可见文字，而不是整块空白。
+  const bodyHtml = body.trim() ? body : "<p>这篇内容暂时没有正文。</p>";
+  if (!body.trim()) console.warn(`详情内容为空：${kind}/${file}`, { markdownLength: markdown.length });
+  if (!isCurrent()) return false;
+
   setReader({
     type: isNote ? "Note" : isUpdate ? "Update" : "Repository",
     title: entry.title,
     meta,
     // 详情页顶部已经有 reader-title，这里去掉 Markdown 第一行 H1，避免标题重复显示。
-    bodyHtml: body,
+    bodyHtml,
     backHref: isNote ? "#notes" : isUpdate ? "#updates" : "#repos",
   });
+  return true;
 }
 
-async function openGalleryDetail(file) {
+async function openGalleryDetail(file, isCurrent = () => true) {
   const entry = galleryData.find((item) => item.file === file);
-  if (!entry) return;
+  if (!entry) return false;
 
   const markdown = stripFrontmatter(await readTextSafe(`./content/gallery/${file}`));
   const photoCount = (markdown.match(/^!\[/gm) || []).length;
@@ -1250,13 +1327,18 @@ async function openGalleryDetail(file) {
     ? markdownToHtml(stripFirstHeading(markdown), { imageBasePath: "./content/gallery/" })
     : "<p>相册内容暂时无法读取，请刷新页面或重新运行 start-blog.command。</p>";
 
+  const bodyHtml = body.trim() ? body : "<p>这本相册暂时没有正文。</p>";
+  if (!body.trim()) console.warn(`相册内容为空：${file}`, { markdownLength: markdown.length });
+  if (!isCurrent()) return false;
+
   setReader({
     type: "Gallery",
     title: entry.title,
     meta: [entry.date, entry.place, photoCount ? `${photoCount} 张照片` : ""].filter(Boolean).join(" · "),
-    bodyHtml: body,
+    bodyHtml,
     backHref: "#gallery",
   });
+  return true;
 }
 
 async function handleRoute() {
@@ -1277,14 +1359,18 @@ async function handleRoute() {
   }
 
   const file = decodeURIComponent(encodedFile);
+  // 读取期间地址可能已经变了（快速返回、前进后退或连点两张卡片），
+  // 只允许“仍然指向当前 hash”的那一次打开真正写入阅读层。
+  const isCurrent = () => window.location.hash === fullHash && !isClosingReader;
 
+  let opened = false;
   if (kind === "note" || kind === "repo" || kind === "update") {
-    await openMarkdownDetail(kind, file);
+    opened = await openMarkdownDetail(kind, file, isCurrent);
   } else if (kind === "gallery") {
-    await openGalleryDetail(file);
+    opened = await openGalleryDetail(file, isCurrent);
   }
 
-  lastDetailHash = fullHash;
+  if (opened && isCurrent()) lastDetailHash = fullHash;
 }
 
 /*
@@ -1292,71 +1378,304 @@ async function handleRoute() {
   返回列表时会用它恢复到原来的阅读位置。
 */
 function recordOpenSource(link) {
-  const rect = link.getBoundingClientRect();
   const href = link.getAttribute("href");
-  pendingOpenRect = {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height,
-  };
   currentOpenSource = {
     href,
+    link,
     scrollX: window.scrollX,
     scrollY: window.scrollY,
   };
 }
 
-function createMorphSurface(rect) {
-  const surface = document.createElement("div");
-  surface.className = "reader-morph-surface";
-  Object.assign(surface.style, {
+// 进入和退出使用同一张真实阅读面板，方向相反，避免正文突然变成空白色块。
+const READER_REST = { transform: "translateY(0) scale(1)", opacity: 1 };
+const READER_DISMISSED = { transform: "translateY(32px) scale(0.975)", opacity: 0 };
+const READER_CONTENT_REST = { transform: "translateY(0)", opacity: 1 };
+const READER_CONTENT_DISMISSED = { transform: "translateY(12px)", opacity: 0 };
+
+// 卡片 → 阅读面板的形变只做 transform / opacity，交给合成器完成，避免逐帧重排。
+const MORPH_OPEN_DURATION = 480;
+const MORPH_CLOSE_DURATION = 400;
+const MORPH_EASING = "cubic-bezier(0.65, 0, 0.35, 1)";
+
+/*
+  取一个元素在视口里的有效矩形。完全在屏幕外或尺寸太小时返回 null，
+  这样从浏览器历史直接打开详情时，会走原来的轻量淡入淡出。
+*/
+function getVisibleRect(element) {
+  if (!element?.isConnected) return null;
+  const rect = element.getBoundingClientRect();
+  if (rect.width < 32 || rect.height < 24) return null;
+  if (rect.bottom <= 0 || rect.top >= window.innerHeight) return null;
+  if (rect.right <= 0 || rect.left >= window.innerWidth) return null;
+  return rect;
+}
+
+// 用一条 transform 把 fromRect 精确映射到 toRect（元素默认以中心为原点缩放）。
+function morphTransform(fromRect, toRect) {
+  const fromX = fromRect.left + fromRect.width / 2;
+  const fromY = fromRect.top + fromRect.height / 2;
+  const toX = toRect.left + toRect.width / 2;
+  const toY = toRect.top + toRect.height / 2;
+  const scaleX = toRect.width / fromRect.width;
+  const scaleY = toRect.height / fromRect.height;
+  return `translate3d(${(toX - fromX).toFixed(2)}px, ${(toY - fromY).toFixed(2)}px, 0) scale(${scaleX.toFixed(4)}, ${scaleY.toFixed(4)})`;
+}
+
+/*
+  打开详情时克隆被点击的卡片，叠在阅读层上方做“卡片长大成页面”的动画。
+  克隆体固定定位、尺寸不变，只改变 transform，所以浏览器不需要重新布局整页。
+*/
+function createReaderMorphGhost(link, rect) {
+  if (!link) return null;
+  const linkStyle = getComputedStyle(link);
+  const hoveredSurface = link.querySelector(".note-card, .repo-card, .update-card, figure");
+  const hoveredTransform = hoveredSurface ? getComputedStyle(hoveredSurface).transform : "none";
+  const ghost = document.createElement("div");
+  const clone = link.cloneNode(true);
+  const isGallery = link.classList.contains("gallery-item");
+
+  ghost.className = "reader-morph-ghost";
+  if (isGallery && link.matches(".gallery-item:nth-child(3n)")) ghost.classList.add("is-wide");
+  ghost.setAttribute("aria-hidden", "true");
+  Object.assign(ghost.style, {
     left: `${rect.left}px`,
     top: `${rect.top}px`,
     width: `${rect.width}px`,
     height: `${rect.height}px`,
   });
-  document.body.append(surface);
-  return surface;
+
+  clone.classList.add("reader-morph-ghost__card");
+  clone.removeAttribute("id");
+  clone.removeAttribute("href");
+  clone.removeAttribute("data-reveal");
+  clone.setAttribute("tabindex", "-1");
+  clone.style.display = linkStyle.display;
+  // 点击时卡片正处于 hover 的轻微上浮状态，把这个位移也带进影子里。
+  const cloneSurface = clone.querySelector(".note-card, .repo-card, .update-card, figure");
+  if (cloneSurface && hoveredTransform !== "none") cloneSurface.style.transform = hoveredTransform;
+  clone.querySelectorAll("[data-reveal]").forEach((node) => {
+    node.removeAttribute("data-reveal");
+    node.classList.remove("is-visible");
+  });
+  clone.querySelectorAll("img").forEach((image) => {
+    // 使用已经加载好的缩略图，形变过程中不再触发新的网络请求。
+    if (image.currentSrc) image.src = image.currentSrc;
+    image.removeAttribute("srcset");
+    image.removeAttribute("sizes");
+    image.loading = "eager";
+    image.decoding = "sync";
+    image.draggable = false;
+  });
+
+  // 相册卡片的大号编号来自 CSS counter；离开 .gallery-grid 后需要补回序号。
+  if (isGallery) {
+    const index = [...link.parentElement.children].indexOf(link);
+    ghost.style.counterReset = `album ${Math.max(0, index)}`;
+  }
+
+  ghost.append(clone);
+  document.body.append(ghost);
+  return ghost;
 }
 
-async function animateReaderOpen(reader) {
+function removeReaderMorphGhost(ghost) {
+  if (ghost?.isConnected) ghost.remove();
+}
+
+function cancelReaderMotion() {
+  if (!readerMotion) return;
+  const motion = readerMotion;
+  readerMotion = null;
+  if (motion.timer) window.clearTimeout(motion.timer);
+  motion.animations.forEach((animation) => animation.cancel());
+  removeReaderMorphGhost(motion.ghost);
+  motion.sourceLink?.classList.remove("is-morph-source");
+}
+
+async function animateReaderTransition(reader, opening, { sourceLink = null, sourceRect = null } = {}) {
+  const scrim = document.querySelector(".reader-scrim");
   const panel = reader.querySelector(".reader-panel");
-  const source = pendingOpenRect;
-  pendingOpenRect = null;
+  const bar = reader.querySelector(".reader-bar");
+  // 在取消旧动画前取当前画面，快速按 Esc 时也能从当前位置平滑退出。
+  const current = getComputedStyle(reader);
+  const start = opening ? READER_DISMISSED : {
+    transform: current.transform,
+    opacity: current.opacity,
+  };
+  const scrimOpacity = opening ? 0 : (scrim ? getComputedStyle(scrim).opacity : 1);
+  const barStyle = bar ? getComputedStyle(bar) : null;
+  const panelStyle = panel ? getComputedStyle(panel) : null;
+  const panelStart = opening ? READER_CONTENT_DISMISSED : panelStyle ? {
+    transform: panelStyle.transform,
+    opacity: panelStyle.opacity,
+  } : READER_CONTENT_REST;
+  cancelReaderMotion();
+  if (prefersReducedMotion()) return;
 
-  if (!panel || !source || !source.width || !source.height) {
-    reader.classList.remove("is-opening-from-card");
-    return;
+  const motion = { animations: [], ghost: null, sourceLink: null, timer: null };
+  readerMotion = motion;
+
+  // 打开前卡片已经被量好尺寸；关闭时再量一次，避免期间页面滚动造成偏差。
+  const cardRect = opening ? sourceRect || getVisibleRect(sourceLink) : getVisibleRect(sourceLink);
+  let ghost = null;
+  if (opening && cardRect) {
+    try {
+      ghost = createReaderMorphGhost(sourceLink, cardRect);
+    } catch (error) {
+      // 克隆失败时退回普通淡入，不影响阅读本身。
+      console.warn("卡片形变效果已跳过", error);
+    }
+  }
+  const morphing = opening ? Boolean(ghost) : Boolean(cardRect);
+
+  if (ghost) {
+    motion.ghost = ghost;
+    motion.sourceLink = sourceLink;
+    sourceLink.classList.add("is-morph-source");
   }
 
-  await new Promise((resolve) => requestAnimationFrame(resolve));
+  try {
+    if (opening && ghost) {
+      const readerRect = reader.getBoundingClientRect();
+      // 真正的阅读纸从卡片矩形长到全屏矩形。纸面上暂时不放内容，
+      // 所以放大过程中不会出现被拉伸的文字。
+      const readerFrom = morphTransform(readerRect, cardRect);
+      motion.animations.push(ghost.animate([
+        { transform: "translate3d(0, 0, 0) scale(1, 1)", opacity: 1, offset: 0 },
+        { transform: "translate3d(0, 0, 0) scale(1.03, 1.03)", opacity: 1, offset: 0.4 },
+        { transform: "translate3d(0, 0, 0) scale(1.05, 1.05)", opacity: 0, offset: 1 },
+      ], {
+        duration: 230,
+        easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+        fill: "both",
+      }));
 
-  const endRect = panel.getBoundingClientRect();
-  if (!endRect.width || !endRect.height) {
-    reader.classList.remove("is-opening-from-card");
-    return;
+      motion.animations.push(reader.animate([
+        { transform: readerFrom },
+        { transform: "translate3d(0, 0, 0) scale(1, 1)" },
+      ], {
+        duration: MORPH_OPEN_DURATION,
+        easing: MORPH_EASING,
+        fill: "both",
+      }));
+      motion.animations.push(reader.animate([
+        { opacity: 0.7 },
+        { opacity: 1 },
+      ], { duration: 140, easing: "ease-out", fill: "both" }));
+
+      // 纸面基本铺开后再让标题栏和正文淡入。
+      if (bar) {
+        motion.animations.push(bar.animate([
+          { opacity: 0 },
+          { opacity: 1 },
+        ], { duration: 260, delay: 250, easing: "ease-out", fill: "both" }));
+      }
+      if (panel) {
+        motion.animations.push(panel.animate([
+          { opacity: 0, transform: "translate3d(0, 12px, 0)" },
+          { opacity: 1, transform: "translate3d(0, 0, 0)" },
+        ], {
+          duration: 280,
+          delay: 270,
+          easing: MORPH_EASING,
+          fill: "both",
+        }));
+      }
+      if (scrim) {
+        motion.animations.push(scrim.animate([
+          { opacity: 0 },
+          { opacity: 1 },
+        ], { duration: 440, easing: "ease-out", fill: "both" }));
+      }
+    } else if (!opening && morphing) {
+      // 退出时先让正文退场，再把整张纸缩回卡片的位置和大小。
+      const readerRect = reader.getBoundingClientRect();
+      const target = morphTransform(readerRect, cardRect);
+      const startTransform = current.transform === "none" ? "translate3d(0, 0, 0) scale(1)" : current.transform;
+      const startOpacity = Number.parseFloat(current.opacity);
+      const startOpacityValue = Number.isFinite(startOpacity) ? startOpacity : 1;
+      const barStartOpacity = barStyle ? Number.parseFloat(barStyle.opacity) : 1;
+      motion.animations.push(reader.animate([
+        {
+          transform: startTransform,
+          opacity: startOpacityValue,
+          offset: 0,
+        },
+        { transform: target, opacity: startOpacityValue, offset: 0.8 },
+        { transform: target, opacity: 0, offset: 1 },
+      ], {
+        duration: MORPH_CLOSE_DURATION,
+        delay: 70,
+        easing: MORPH_EASING,
+        fill: "both",
+      }));
+      if (bar) {
+        motion.animations.push(bar.animate([
+          { opacity: Number.isFinite(barStartOpacity) ? barStartOpacity : 1 },
+          { opacity: 0 },
+        ], { duration: 120, easing: "ease-in", fill: "both" }));
+      }
+      if (panel) {
+        motion.animations.push(panel.animate([
+          { transform: panelStart.transform, opacity: Number.parseFloat(panelStart.opacity) || 1 },
+          { transform: "translateY(8px)", opacity: 0 },
+        ], { duration: 140, easing: "ease-in", fill: "both" }));
+      }
+      if (scrim) {
+        motion.animations.push(scrim.animate([
+          { opacity: Number.parseFloat(scrimOpacity) || 1 },
+          { opacity: 0 },
+        ], { duration: 420, delay: 20, easing: "ease-in", fill: "both" }));
+      }
+    } else {
+      // 没有可用的来源卡片（例如直接打开详情链接）时，保留原来的轻量进出。
+      // 起始透明度留 0.7，即使动画时间线被浏览器暂停也不会完全看不见内容。
+      const fallbackStart = opening ? { ...READER_DISMISSED, opacity: 0.7 } : start;
+      const fallbackPanelStart = opening ? { ...READER_CONTENT_DISMISSED, opacity: 0.7 } : panelStart;
+      const options = {
+        duration: opening ? 480 : 360,
+        delay: opening ? 0 : 40,
+        easing: opening ? "cubic-bezier(0.22, 1, 0.36, 1)" : "cubic-bezier(0.4, 0, 1, 1)",
+        fill: "both",
+      };
+      motion.animations.push(reader.animate([fallbackStart, opening ? READER_REST : READER_DISMISSED], options));
+      // 面板先展开，正文稍后跟入；退出时正文先收起，整张纸再离开。
+      if (panel) {
+        motion.animations.push(panel.animate([
+          fallbackPanelStart,
+          opening ? READER_CONTENT_REST : READER_CONTENT_DISMISSED,
+        ], { ...options, duration: opening ? 400 : 320, delay: opening ? 80 : 0 }));
+      }
+      if (scrim) {
+        motion.animations.push(scrim.animate([
+          { opacity: scrimOpacity },
+          { opacity: opening ? 1 : 0 },
+        ], { ...options, duration: opening ? 480 : 400, delay: 0 }));
+      }
+    }
+    const animationsDone = Promise.all(
+      motion.animations.map((animation) => animation.finished.catch(() => {}))
+    );
+    // 极少数情况下浏览器会暂停动画时间线（例如切到后台、系统休眠），
+    // finished 可能迟迟不返回。兜底到点后直接进入最终状态，避免详情页一直空着。
+    let watchdogFired = false;
+    const watchdog = new Promise((resolve) => {
+      motion.timer = window.setTimeout(() => {
+        watchdogFired = true;
+        resolve();
+      }, 1000);
+    });
+    await Promise.race([animationsDone, watchdog]);
+    if (watchdogFired) console.warn("阅读层动画超时，已直接显示最终状态");
+  } finally {
+    if (motion.timer) {
+      window.clearTimeout(motion.timer);
+      motion.timer = null;
+    }
+    // 退出动画保留最后一帧，等 hideReader 一次性隐藏并清理，避免闪回。
+    if (opening && readerMotion === motion) cancelReaderMotion();
   }
-
-  const surface = createMorphSurface(endRect);
-  surface.style.willChange = "transform, opacity";
-  const sx = source.width / endRect.width;
-  const sy = source.height / endRect.height;
-  const tx = source.left - endRect.left;
-  const ty = source.top - endRect.top;
-
-  const animation = surface.animate(
-    [
-      { transform: `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`, opacity: 0.72 },
-      { transform: "none", opacity: 1 },
-    ],
-    { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
-  );
-
-  await animation.finished.catch(() => {});
-  surface.style.willChange = "";
-  surface.remove();
-  reader.classList.remove("is-opening-from-card");
 }
 
 function findCurrentDetailLink(detailHash = window.location.hash) {
@@ -1368,14 +1687,6 @@ function setHashWithoutJump(hash) {
   if (window.location.hash === hash) return;
   history.pushState(null, "", hash);
   updateActiveNav();
-}
-
-function hideReturnTarget(targetLink) {
-  const previousVisibility = targetLink.style.visibility;
-  targetLink.style.visibility = "hidden";
-  return () => {
-    targetLink.style.visibility = previousVisibility;
-  };
 }
 
 function restoreListPositionForReturn(targetLink, detailHash) {
@@ -1394,85 +1705,39 @@ function restoreListPositionForReturn(targetLink, detailHash) {
   targetLink.scrollIntoView({ behavior: "instant", block: "center", inline: "nearest" });
 }
 
-/*
-  详情关闭动画：用一个轻量玻璃表面从阅读面板位置缩回原卡片。
-  这里会恢复到点开内容时的滚动位置，不再让主页滚动去寻找原卡片。
-*/
+/* 阅读面板与遮罩同步退场，结束后再恢复列表和焦点。 */
 async function animateReaderClose(backHref, detailHash = window.location.hash, { updateHash = true } = {}) {
+  if (isClosingReader) return;
   const reader = document.querySelector("#reader");
-  const panel = document.querySelector(".reader-panel");
   const targetLink = findCurrentDetailLink(detailHash);
-
-  if (!reader || !panel || !reader.classList.contains("is-open") || prefersReducedMotion()) {
-    hideReader();
-    if (updateHash) setHashWithoutJump(backHref);
-    lastDetailHash = "";
-    return;
-  }
-
   isClosingReader = true;
 
-  const startRect = panel.getBoundingClientRect();
+  try {
+    if (reader?.classList.contains("is-open")) {
+      await animateReaderTransition(reader, false, { sourceLink: targetLink });
+    }
+  } finally {
+    hideReader({ restoreFocus: false });
+    // 关闭动画期间如果地址被切到了另一篇详情（前进/后退或快速操作），
+    // 不要把它改回列表页，等清理完再按新地址打开。
+    const pendingHash = window.location.hash;
+    const pendingDetail = pendingHash.includes("/") && pendingHash !== detailHash;
 
-  if (!targetLink || !startRect.width || !startRect.height) {
-    const fallback = panel.animate(
-      [
-        { opacity: 1, transform: "translateY(0) scale(1)" },
-        { opacity: 0, transform: "translateY(12px) scale(0.985)" },
-      ],
-      { duration: 180, easing: "cubic-bezier(0.7, 0, 0.84, 0)" }
-    );
-    await fallback.finished.catch(() => {});
-    hideReader();
-    if (updateHash) setHashWithoutJump(backHref);
+    if (!pendingDetail) {
+      if (targetLink?.isConnected) restoreListPositionForReturn(targetLink, detailHash);
+      if (updateHash) setHashWithoutJump(backHref);
+    }
+
+    currentOpenSource = null;
     lastDetailHash = "";
     isClosingReader = false;
-    return;
+
+    if (pendingDetail) {
+      queueMicrotask(handleRoute);
+    } else if (targetLink?.isConnected) {
+      targetLink.focus({ preventScroll: true });
+    }
   }
-
-  const surface = createMorphSurface(startRect);
-
-  hideReader();
-  restoreListPositionForReturn(targetLink, detailHash);
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-  const endRect = targetLink.getBoundingClientRect();
-  if (!endRect.width || !endRect.height) {
-    surface.remove();
-    if (updateHash) setHashWithoutJump(backHref);
-    lastDetailHash = "";
-    isClosingReader = false;
-    return;
-  }
-
-  const restoreTargetVisibility = hideReturnTarget(targetLink);
-
-  // 用 transform 代替 left/top/width/height 动画，只走 GPU 合成层。
-  surface.style.willChange = "transform, opacity";
-  const sx = endRect.width / startRect.width;
-  const sy = endRect.height / startRect.height;
-  const tx = endRect.left - startRect.left;
-  const ty = endRect.top - startRect.top;
-
-  const animation = surface.animate(
-    [
-      { transform: "none", opacity: 1 },
-      { transform: `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`, opacity: 0.72 },
-    ],
-    { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
-  );
-
-  await animation.finished.catch(() => {});
-  surface.style.willChange = "";
-  surface.remove();
-  restoreTargetVisibility();
-  if (updateHash) setHashWithoutJump(backHref);
-  currentOpenSource = null;
-  lastDetailHash = "";
-  isClosingReader = false;
-
-  // 动画结束后再把焦点还给原卡片；history.back 会重设焦点，所以放在最后一步。
-  if (targetLink?.isConnected) targetLink.focus({ preventScroll: true });
 }
 
 /*
@@ -1652,6 +1917,8 @@ window.addEventListener("resize", () => {
     sizeLightboxImage(imageLightboxSession);
   }
   updateReaderProgress();
+  // 宽度变了，菜单项的缓存尺寸要重新量。
+  measureNavLinks();
   syncNavLens(true);
 });
 window.addEventListener("scroll", handlePageScroll, { passive: true });

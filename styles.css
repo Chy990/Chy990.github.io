@@ -65,6 +65,11 @@
   --reader-scrim: rgba(23, 21, 15, 0.44);
   --ambient-a: rgba(214, 148, 104, 0.18);
   --ambient-b: rgba(96, 134, 146, 0.12);
+  /* 环境光的三层渐变。抽成变量，方便在“跟随页面滚动”和“固定层”两种模式之间复用。 */
+  --ambient-layers:
+    radial-gradient(60vw 50vh at 4% -10%, var(--ambient-a), transparent 62%),
+    radial-gradient(50vw 42vh at 104% 0%, var(--ambient-b), transparent 58%),
+    radial-gradient(55vw 45vh at 52% 108%, var(--ambient-b), transparent 62%);
 
   --photo-filter: saturate(0.94) contrast(1.02);
 
@@ -195,11 +200,13 @@ body {
   margin: 0;
   min-height: 100vh;
   overflow-x: hidden;
-  background-color: var(--paper);
-  background-image:
-    radial-gradient(60vw 50vh at 4% -10%, var(--ambient-a), transparent 62%),
-    radial-gradient(50vw 42vh at 104% 0%, var(--ambient-b), transparent 58%),
-    radial-gradient(55vw 45vh at 52% 108%, var(--ambient-b), transparent 62%);
+  /*
+    纸张底色交给 <html>，body 自己保持透明。
+    这样环境光才能单独放在 body::before 这个固定层里，
+    而不是靠 background-attachment: fixed 拖慢每一次滚动。
+  */
+  background-color: transparent;
+  background-image: var(--ambient-layers);
   background-attachment: scroll;
   background-repeat: no-repeat;
   color: var(--ink);
@@ -226,10 +233,25 @@ body::after {
   opacity: 0.045;
 }
 
-/* 大屏才固定环境光；手机上让它随页面滚动，避免额外的合成开销。 */
+/*
+  大屏的环境光固定在整个视口上。
+  以前这里用的是 background-attachment: fixed —— 它会让浏览器在每一帧滚动时
+  重新绘制整屏背景（渐变区域正好是视口大小），是滚动掉帧的常见来源。
+  现在换成独立的固定层：它被提升为一个合成层，滚动时只移动图层，不再重绘。
+*/
 @media (min-width: 901px) {
   body {
-    background-attachment: fixed;
+    background-image: none;
+  }
+
+  body::before {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    pointer-events: none;
+    background-image: var(--ambient-layers);
+    background-repeat: no-repeat;
   }
 }
 
@@ -1981,43 +2003,97 @@ h2 {
   background: var(--reader-bg);
   box-shadow:
     var(--glass-highlight),
-    0 44px 100px -42px rgba(0, 0, 0, 0.55),
-    0 0 0 100vmax var(--reader-scrim);
+    0 44px 100px -42px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
 
 .reader-section.is-open {
   visibility: visible;
   pointer-events: auto;
-  animation: reader-sheet-in 380ms var(--ease) backwards;
 }
 
-/* 打开时整张阅读纸从下方轻轻升起，不再额外生成一块过渡色。 */
-@keyframes reader-sheet-in {
-  from {
-    transform: translateY(16px) scale(0.992);
-  }
-
-  to {
-    transform: none;
-  }
+/* ================================================================
+   13.1 卡片 → 阅读层的形变
+   ================================================================ */
+/*
+  打开详情时把被点击的卡片克隆成固定尺寸的影子，只对它做 transform / opacity。
+  原卡片暂时隐藏，避免两层半透明玻璃叠在一起。
+*/
+.content-link.is-morph-source {
+  visibility: hidden;
 }
 
-/* 纸张本身保持不透明，只让里面的正文淡入，避免主页透出来像两层。 */
-.reader-section.is-open .reader-panel {
-  animation: reader-panel-in 460ms var(--ease) backwards;
+.reader-morph-ghost {
+  position: fixed;
+  z-index: 105;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  contain: layout paint style;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
-@keyframes reader-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
+.reader-morph-ghost__card {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  color: inherit;
+  text-decoration: none;
+}
 
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.reader-morph-ghost *,
+.reader-morph-ghost *::before,
+.reader-morph-ghost *::after {
+  /* 影子只需要“看起来像卡片”，不要在动画里再跑一遍 hover / 入场过渡。 */
+  transition: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+/* 下面四条镜像 .gallery-item:nth-child(3n) 的宽图版布局，供相册影子使用。 */
+.reader-morph-ghost.is-wide figure {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  align-items: stretch;
+  min-height: 430px;
+}
+
+.reader-morph-ghost.is-wide img {
+  height: 100%;
+  min-height: 430px;
+}
+
+.reader-morph-ghost.is-wide figcaption {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-top: 0;
+  padding: clamp(24px, 3vw, 42px);
+  border-top: 0;
+  border-left: 1px solid var(--rule);
+}
+
+.reader-morph-ghost.is-wide figcaption::after {
+  position: absolute;
+  right: clamp(16px, 3vw, 36px);
+  bottom: clamp(2px, 1vw, 12px);
+  z-index: 0;
+  color: transparent;
+  content: counter(album, decimal-leading-zero);
+  font-family: var(--font-serif);
+  font-size: clamp(96px, 11vw, 172px);
+  font-weight: 400;
+  line-height: 0.8;
+  opacity: 0.45;
+  pointer-events: none;
+  -webkit-text-stroke: 1px var(--rule-strong);
+}
+
+.reader-morph-ghost.is-wide figcaption > * {
+  position: relative;
+  z-index: 1;
 }
 
 body.is-reader-open,
@@ -2025,24 +2101,18 @@ body.is-lightbox-open {
   overflow: hidden;
 }
 
-/* 阅读层背后的遮罩：一整块固定颜色，比 100vmax 阴影和大面积模糊便宜。 */
-body.is-reader-open::before {
+/* 遮罩独立于环境光，与真实阅读面板一起进入和退出。 */
+.reader-scrim {
   position: fixed;
   inset: 0;
   z-index: 99;
-  content: "";
+  visibility: hidden;
+  pointer-events: none;
   background: var(--reader-scrim);
-  animation: scrim-in 220ms ease both;
 }
 
-@keyframes scrim-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+body.is-reader-open .reader-scrim {
+  visibility: visible;
 }
 
 .reader-bar {
@@ -2372,24 +2442,6 @@ body.is-reader-open::before {
   width: 40px;
   height: 1px;
   background: var(--rule-strong);
-}
-
-/* 从卡片展开时使用的轻量过渡表面。 */
-.reader-morph-surface {
-  position: fixed;
-  z-index: 1000;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
-  contain: layout paint;
-  pointer-events: none;
-  transform-origin: top left;
-  backface-visibility: hidden;
-}
-
-.reader-section.is-open.is-opening-from-card .reader-panel {
-  visibility: hidden;
 }
 
 /* ================================================================
@@ -3170,8 +3222,10 @@ body.is-reader-open::before {
     color: #000;
   }
 
+  body::before,
   body::after,
   .page-progress,
+  .reader-scrim,
   .site-header,
   .hero-visual,
   .hero-actions,
