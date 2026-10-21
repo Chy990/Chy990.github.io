@@ -48,7 +48,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261021-66" />
+    <link rel="stylesheet" href="./styles.css?v=20261021-68" />
   </head>
   <body>
     <!-- 键盘用户可以直接跳过导航，进入正文。 -->
@@ -316,6 +316,12 @@
     </div>
 
     <!--
+      手机 / iPad 的详情导航条容器：脚本会把 .reader-bar 移到这里，
+      这样它和底部主导航处在同一层，进出详情时可以做位置与宽度的过渡动画。
+    -->
+    <div class="reader-bar-dock"></div>
+
+    <!--
       阅读详情层：笔记、仓库、相册和更新使用统一的进入与退出动效。
       它放在 .page-shell 外面，打开时可以让背后的页面整体 inert，避免误触。
     -->
@@ -326,10 +332,11 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="reader-title"
+      aria-owns="reader-bar"
       aria-hidden="true"
       inert
     >
-      <div class="reader-bar">
+      <div class="reader-bar" id="reader-bar">
         <a class="reader-back" href="#notes">← 返回列表</a>
         <span class="reader-bar-label" aria-hidden="true">READING</span>
         <div class="reader-progress" aria-hidden="true"><span></span></div>
@@ -347,6 +354,6 @@
     <!-- 自动生成的内容清单；平时只增删 content 里的文件即可。 -->
     <script src="./content/content-index.js?v=20261021-57"></script>
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261021-66"></script>
+    <script src="./script.js?v=20261021-68"></script>
   </body>
 </html>

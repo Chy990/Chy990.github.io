@@ -62,6 +62,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.98);
   --reader-bg: rgba(247, 244, 236, 0.985);
   --reader-scrim: rgba(23, 21, 15, 0.44);
+  /* 阅读纸距离屏幕边缘的距离，底部导航条会跟着它一起对齐。 */
+  --reader-inset: clamp(10px, 2vw, 22px);
   --ambient-a: rgba(214, 148, 104, 0.18);
   --ambient-b: rgba(96, 134, 146, 0.12);
   /* 环境光的三层渐变。抽成变量，方便在“跟随页面滚动”和“固定层”两种模式之间复用。 */
@@ -1987,7 +1989,7 @@ h2 {
    ================================================================ */
 .reader-section {
   position: fixed;
-  inset: clamp(10px, 2vw, 22px);
+  inset: var(--reader-inset);
   /* 必须高于 sticky header（z-index: 50），否则页头会浮在阅读层上面。 */
   z-index: 100;
   display: block;
@@ -2646,6 +2648,10 @@ body.is-reader-open .reader-scrim {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --reader-inset: 8px;
+  }
+
   .page-shell {
     width: calc(100% - 32px);
   }
@@ -3140,9 +3146,22 @@ body.is-reader-open .reader-scrim {
   width: max-content;
   max-width: calc(100% - 24px);
   transform: translateX(-50%);
+  transition: opacity 200ms ease;
 }
 
 body.nav-docked .nav-dock {
+  display: block;
+}
+
+/*
+  详情导航条容器：桌面端不显示，移动端由脚本把 .reader-bar 移进来，
+  让它可以独立于阅读纸的形变动画，直接和底部主导航做位置过渡。
+*/
+.reader-bar-dock {
+  display: none;
+}
+
+body.nav-docked .reader-bar-dock {
   display: block;
 }
 
@@ -3188,6 +3207,17 @@ body.nav-docked {
 body.is-reader-open .nav-dock,
 body.is-lightbox-open .nav-dock {
   visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/*
+  返回列表时让主导航重新露出来，详情导航条会同步缩回它的位置。
+  因为主导航在遮罩和阅读纸下面，它会在阅读纸收起的最后阶段自然显现。
+*/
+body.is-reader-open.is-reader-closing:not(.is-lightbox-open) .nav-dock {
+  visibility: visible;
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -3202,21 +3232,32 @@ body.nav-docked .reader-section {
 body.nav-docked .reader-bar {
   position: fixed;
   top: auto;
-  left: 50%;
-  right: auto;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  bottom: calc(var(--reader-inset) + 8px + env(safe-area-inset-bottom, 0px));
+  z-index: 101;
   width: min(560px, calc(100% - 32px));
-  margin: 0;
-  transform: translateX(-50%);
+  margin: 0 auto;
   box-shadow:
     var(--glass-highlight),
     0 22px 46px -22px rgba(46, 35, 24, 0.68);
 }
 
+/* 详情页关闭后，导航条完全隐藏，把位置还给底部主导航。 */
+body.nav-docked:not(.is-reader-open) .reader-bar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+  iPad 的导航条和左下角主导航对齐。
+  用 --reader-inset 计算左边距，避免像之前那样贴着阅读纸边缘、看起来超出侧边。
+*/
 body.nav-docked.nav-dock-ipad .reader-bar {
-  left: max(20px, env(safe-area-inset-left, 0px));
-  width: min(560px, calc(100% - 40px));
-  transform: none;
+  left: calc(var(--reader-inset) + 12px);
+  right: auto;
+  width: min(560px, calc(100% - var(--reader-inset) - 28px));
+  margin: 0;
 }
 
 /* ================================================================

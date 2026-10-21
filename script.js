@@ -21,6 +21,9 @@ const pageShell = document.querySelector(".page-shell");
 const siteHeader = document.querySelector(".site-header");
 const headerActions = document.querySelector(".header-actions");
 const navDock = document.querySelector(".nav-dock");
+const readerSection = document.querySelector("#reader");
+const readerBarElement = document.querySelector(".reader-bar");
+const readerBarDock = document.querySelector(".reader-bar-dock");
 const CONTENT_VERSION = "20261021-57";
 const BASE_TITLE = "Chen 的实验台";
 
@@ -46,6 +49,7 @@ let navTracking = false;
 let navPinnedLink = null;
 let navPinTimer = null;
 let imageLightboxSession = null;
+let readerBarMotion = null;
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -76,12 +80,113 @@ function shouldDockNav() {
   return touchNavQuery.matches && wideTouchQuery.matches;
 }
 
+function isNavDocked() {
+  return document.body.classList.contains("nav-docked");
+}
+
+/*
+  详情导航条与底部主导航的过渡：
+  两者在手机上都位于正下方，在 iPad 上都位于左下角，所以进入详情时
+  让 reader-bar 从主导航的矩形“长”出来，退出时再缩回主导航的位置。
+*/
+function clearReaderBarStyles() {
+  if (!readerBarElement) return;
+  readerBarElement.style.transform = "";
+  readerBarElement.style.transformOrigin = "";
+  readerBarElement.style.opacity = "";
+  readerBarElement.style.visibility = "";
+}
+
+function cancelReaderBarMotion() {
+  if (readerBarMotion) {
+    const animation = readerBarMotion;
+    readerBarMotion = null;
+    animation.cancel();
+  }
+  clearReaderBarStyles();
+}
+
+// 把 toRect 的布局映射成 fromRect 的视觉矩形，供 FLIP 动画使用。
+function barRectTransform(fromRect, toRect) {
+  const scaleX = fromRect.width / toRect.width;
+  const scaleY = fromRect.height / toRect.height;
+  const translateX = fromRect.left + fromRect.width / 2 - (toRect.left + toRect.width / 2);
+  const translateY = fromRect.top + fromRect.height / 2 - (toRect.top + toRect.height / 2);
+  return `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`;
+}
+
+function animateReaderBarIn() {
+  if (!isNavDocked() || !readerBarElement || !navElement) return;
+
+  cancelReaderBarMotion();
+  if (prefersReducedMotion()) return;
+
+  const barRect = readerBarElement.getBoundingClientRect();
+  const navRect = navElement.getBoundingClientRect();
+  if (barRect.width < 1 || navRect.width < 1) return;
+
+  readerBarElement.style.transformOrigin = "50% 50%";
+  const animation = readerBarElement.animate(
+    [
+      { transform: barRectTransform(navRect, barRect), opacity: 0.4 },
+      { transform: "translate(0px, 0px) scale(1, 1)", opacity: 1 },
+    ],
+    { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" }
+  );
+  readerBarMotion = animation;
+
+  animation.finished.catch(() => {}).then(() => {
+    if (readerBarMotion !== animation) return;
+    readerBarMotion = null;
+    animation.cancel();
+    clearReaderBarStyles();
+  });
+}
+
+function animateReaderBarOut() {
+  if (!isNavDocked() || !readerBarElement || !navElement) return;
+
+  // 如果入场动画还没结束，从它当前停留的位置继续，避免返回时闪一下。
+  const startRect = readerBarElement.getBoundingClientRect();
+  const startOpacity = Number.parseFloat(getComputedStyle(readerBarElement).opacity);
+  cancelReaderBarMotion();
+
+  const layoutRect = readerBarElement.getBoundingClientRect();
+  const navRect = navElement.getBoundingClientRect();
+  if (prefersReducedMotion() || layoutRect.width < 1 || navRect.width < 1) return;
+
+  readerBarElement.style.transformOrigin = "50% 50%";
+  const animation = readerBarElement.animate(
+    [
+      {
+        transform: barRectTransform(startRect, layoutRect),
+        opacity: Number.isFinite(startOpacity) ? startOpacity : 1,
+      },
+      { transform: barRectTransform(navRect, layoutRect), opacity: 0 },
+    ],
+    { duration: 320, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "both" }
+  );
+  readerBarMotion = animation;
+
+  animation.finished.catch(() => {}).then(() => {
+    if (readerBarMotion !== animation) return;
+    readerBarMotion = null;
+    animation.cancel();
+    // 保持透明，等 hideReader 移除 is-reader-open 后再彻底隐藏。
+    readerBarElement.style.transform = "";
+    readerBarElement.style.transformOrigin = "";
+    readerBarElement.style.opacity = "0";
+  });
+}
+
 // 阅读层或灯箱打开时，底部导航不应该还能被 Tab 或误触到。
 function syncNavDockInert() {
-  if (!navDock) return;
-  navDock.inert =
-    document.body.classList.contains("is-reader-open") ||
-    document.body.classList.contains("is-lightbox-open");
+  const readerOpen = document.body.classList.contains("is-reader-open");
+  const lightboxOpen = document.body.classList.contains("is-lightbox-open");
+
+  if (navDock) navDock.inert = readerOpen || lightboxOpen;
+  // 详情导航条在移动端被移到了 reader 外面，需要单独控制可交互状态。
+  if (readerBarDock) readerBarDock.inert = !readerOpen || lightboxOpen;
 }
 
 function syncNavPlacement() {
@@ -103,6 +208,19 @@ function syncNavPlacement() {
     measureNavLinks();
     navLensTarget = null;
     syncNavLens(true);
+  }
+
+  // 详情导航条也跟随设备模式切换父容器，移动端才能做底部过渡动画。
+  if (readerBarElement && readerBarDock && readerSection) {
+    const barParent = docked ? readerBarDock : readerSection;
+    if (readerBarElement.parentElement !== barParent) {
+      cancelReaderBarMotion();
+      if (docked) {
+        readerBarDock.append(readerBarElement);
+      } else {
+        readerSection.insertBefore(readerBarElement, readerSection.firstChild);
+      }
+    }
   }
 
   syncNavDockInert();
@@ -1135,8 +1253,8 @@ function updateProfileStats() {
 
 // 阅读进度：根据详情层自身滚动位置更新顶部 2px 红线。
 function updateReaderProgress() {
-  const reader = document.querySelector("#reader");
-  const bar = reader?.querySelector(".reader-progress span");
+  const reader = readerSection;
+  const bar = readerBarElement?.querySelector(".reader-progress span");
   if (!reader || !bar) return;
 
   const max = reader.scrollHeight - reader.clientHeight;
@@ -1175,7 +1293,7 @@ function readerDisplayBroken(reader) {
 
 function forceReaderPainted(reader) {
   const panel = reader.querySelector(".reader-panel");
-  const bar = reader.querySelector(".reader-bar");
+  const bar = readerBarElement;
   reader.style.opacity = "1";
   reader.style.transform = "none";
   if (panel) {
@@ -1288,8 +1406,9 @@ function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   const safeBodyHtml = bodyHtml?.trim() ? bodyHtml : "<p>这篇内容暂时没有正文。</p>";
   if (!bodyHtml?.trim()) console.warn("阅读层正文为空", { type, title });
   reader.querySelector(".reader-body").innerHTML = safeBodyHtml;
-  reader.querySelector(".reader-back").setAttribute("href", backHref);
+  readerBarElement?.querySelector(".reader-back")?.setAttribute("href", backHref);
   document.body.classList.add("is-reader-open");
+  document.body.classList.remove("is-reader-closing");
   document.body.classList.remove("is-header-hidden");
   syncNavDockInert();
   reader.classList.add("is-open");
@@ -1321,7 +1440,9 @@ function hideReader({ restoreFocus = true } = {}) {
   reader.inert = true;
   closeImageLightbox({ immediate: true });
   document.body.classList.remove("is-reader-open");
+  document.body.classList.remove("is-reader-closing");
   document.body.classList.remove("is-header-hidden");
+  cancelReaderBarMotion();
   syncNavDockInert();
   if (pageShell) pageShell.inert = false;
   document.title = BASE_TITLE;
@@ -1703,7 +1824,8 @@ function cancelReaderMotion() {
 async function animateReaderTransition(reader, opening, { sourceLink = null, sourceRect = null } = {}) {
   const scrim = document.querySelector(".reader-scrim");
   const panel = reader.querySelector(".reader-panel");
-  const bar = reader.querySelector(".reader-bar");
+  const bar = readerBarElement;
+  const dockedReader = isNavDocked();
   // 在取消旧动画前取当前画面，快速按 Esc 时也能从当前位置平滑退出。
   const current = getComputedStyle(reader);
   const start = opening ? READER_DISMISSED : {
@@ -1719,6 +1841,9 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
   } : READER_CONTENT_REST;
   cancelReaderMotion();
   if (prefersReducedMotion()) return;
+
+  // 移动端 / iPad：详情导航条从底部主导航的位置长出来。
+  if (opening) animateReaderBarIn();
 
   const motion = {
     animations: [],
@@ -1781,7 +1906,7 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
         这样即使某个 Chromium 版本把“已经结束的透明层”留在空白状态，也只会影响
         动画本身，不会把正文永久留在 opacity: 0。
       */
-      if (bar) {
+      if (bar && !dockedReader) {
         bar.style.opacity = "";
         bar.style.visibility = "hidden";
         motion.hiddenContent.push(bar);
@@ -1836,7 +1961,7 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
         easing: MORPH_EASING,
         fill: "both",
       }));
-      if (bar) {
+      if (bar && !dockedReader) {
         motion.animations.push(bar.animate([
           { opacity: Number.isFinite(barStartOpacity) ? barStartOpacity : 1 },
           { opacity: 0 },
@@ -1866,7 +1991,7 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
         panel.style.transform = "";
         panel.style.visibility = "";
       }
-      if (bar) bar.style.visibility = "";
+      if (bar && !dockedReader) bar.style.visibility = "";
 
       motion.animations.push(reader.animate([
         { transform: "translate3d(0, 26px, 0) scale(0.986)" },
@@ -1980,6 +2105,11 @@ async function animateReaderClose(backHref, detailHash = window.location.hash, {
 
   try {
     if (reader?.classList.contains("is-open")) {
+      // 返回时先让详情导航条缩回底部主导航，同时把底部主导航露出来。
+      if (isNavDocked()) {
+        document.body.classList.add("is-reader-closing");
+        animateReaderBarOut();
+      }
       await animateReaderTransition(reader, false, { sourceLink: targetLink });
     }
   } finally {
@@ -2211,7 +2341,7 @@ function setupReaderDebugHud() {
     const panel = reader?.querySelector(".reader-panel");
     const body = reader?.querySelector(".reader-body");
     const title = reader?.querySelector(".reader-title");
-    const bar = reader?.querySelector(".reader-bar");
+    const bar = readerBarElement;
     const rect = reader?.getBoundingClientRect();
 
     hud.textContent = [
