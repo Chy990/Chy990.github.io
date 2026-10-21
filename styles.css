@@ -1996,6 +1996,8 @@ h2 {
   display: block;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  /* 换文章时不要沿用上一篇的滚动锚点。 */
+  overflow-anchor: none;
   visibility: hidden;
   padding: 0 0 80px;
   border: 1px solid var(--glass-border);
@@ -2212,6 +2214,12 @@ body.is-reader-open .reader-scrim {
   letter-spacing: -0.01em;
   line-height: 1.14;
   text-wrap: balance;
+}
+
+/* 标题只是被程序聚焦给屏幕阅读器，不需要画出焦点框。 */
+.reader-title:focus,
+.reader-title:focus-visible {
+  outline: none;
 }
 
 .reader-meta {

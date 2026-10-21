@@ -29,6 +29,8 @@ let galleryData = [];
 let updatesData = [];
 let currentOpenSource = null;
 let readerMotion = null;
+let readerSettleTimer = 0;
+let lastReaderRecoveryAt = 0;
 let lastDetailHash = "";
 let isClosingReader = false;
 let contentIndexCache = null;
@@ -1082,6 +1084,131 @@ function updateReaderProgress() {
   bar.style.transform = `scaleX(${progress})`;
 }
 
+/*
+  阅读层自检：正常情况下 1.2 秒后内容应该完全可见。
+  如果动画/合成层在极少数情况下卡住，这里会先强制绘制，仍失败就重新走一次路由，
+  避免用户一直盯着一张空的阅读纸。
+*/
+function readerDisplayBroken(reader) {
+  const panel = reader.querySelector(".reader-panel");
+  const body = reader.querySelector(".reader-body");
+  if (!panel || !body) return true;
+
+  const panelStyle = getComputedStyle(panel);
+  const panelOpacity = Number.parseFloat(panelStyle.opacity);
+  const readerOpacity = Number.parseFloat(getComputedStyle(reader).opacity);
+  const bodyRect = body.getBoundingClientRect();
+  const hasContent =
+    body.innerText.trim().length > 0 ||
+    Boolean(body.querySelector("img, figure, pre, ul, ol, table"));
+
+  return (
+    panelOpacity < 0.5 ||
+    readerOpacity < 0.5 ||
+    panelStyle.visibility === "hidden" ||
+    !hasContent ||
+    Boolean(document.querySelector(".reader-morph-ghost")) ||
+    bodyRect.width < 80 ||
+    bodyRect.height < 20
+  );
+}
+
+function forceReaderPainted(reader) {
+  const panel = reader.querySelector(".reader-panel");
+  const bar = reader.querySelector(".reader-bar");
+  reader.style.opacity = "1";
+  reader.style.transform = "none";
+  if (panel) {
+    panel.style.opacity = "1";
+    panel.style.transform = "none";
+    panel.style.visibility = "";
+  }
+  if (bar) {
+    bar.style.opacity = "1";
+    bar.style.visibility = "";
+  }
+
+  // 同一帧内隐藏再恢复，丢弃可能卡住的合成层并强制一次布局/绘制。
+  const previousDisplay = reader.style.display;
+  reader.style.display = "none";
+  void reader.offsetWidth;
+  reader.style.display = previousDisplay;
+
+  requestAnimationFrame(() => {
+    reader.style.opacity = "";
+    reader.style.transform = "";
+    if (panel) {
+      panel.style.opacity = "";
+      panel.style.transform = "";
+    }
+    if (bar) bar.style.opacity = "";
+  });
+}
+
+function refreshReaderPanel(reader) {
+  const panel = reader.querySelector(".reader-panel");
+  if (!panel) return;
+  // 动画结束后用同一帧的零位移 transform 重新栅格化正文层，
+  // 避免个别 Chromium 版本把已经结束的透明/位移层留在“空白”状态。
+  const previousTransform = panel.style.transform;
+  panel.style.transform = "translate3d(0, 0, 0)";
+  void panel.offsetWidth;
+  requestAnimationFrame(() => {
+    panel.style.transform = previousTransform;
+  });
+}
+
+function checkReaderDisplay(reader) {
+  if (!isReaderOpen() || isClosingReader) return;
+  if (!readerDisplayBroken(reader)) {
+    refreshReaderPanel(reader);
+    return;
+  }
+
+  const info = {
+    time: new Date().toISOString(),
+    hash: window.location.hash,
+    title: reader.querySelector(".reader-title")?.textContent || "",
+    panelOpacity: getComputedStyle(reader.querySelector(".reader-panel")).opacity,
+    readerOpacity: getComputedStyle(reader).opacity,
+    bodyLength: reader.querySelector(".reader-body")?.innerText.trim().length || 0,
+    ghost: Boolean(document.querySelector(".reader-morph-ghost")),
+    scrollTop: reader.scrollTop,
+    rect: reader.getBoundingClientRect().toJSON?.() || {},
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    userAgent: navigator.userAgent,
+  };
+  console.warn("阅读层显示异常，正在自动恢复", info);
+  try {
+    sessionStorage.setItem("reader-display-issue", JSON.stringify(info));
+  } catch (error) {
+    // sessionStorage 不可用时忽略，不影响恢复。
+  }
+
+  cancelReaderMotion();
+  forceReaderPainted(reader);
+
+  // 再给浏览器一帧时间；如果仍然不可见，就关掉重开当前详情。
+  requestAnimationFrame(() => {
+    if (!isReaderOpen() || isClosingReader) return;
+    if (!readerDisplayBroken(reader)) return;
+    if (!window.location.hash.includes("/")) return;
+    // 同一轮里只自动重开一次，避免真的遇到浏览器级渲染故障时无限循环。
+    if (Date.now() - lastReaderRecoveryAt < 5000) return;
+    lastReaderRecoveryAt = Date.now();
+    hideReader({ restoreFocus: false });
+    handleRoute();
+  });
+}
+
+function scheduleReaderDisplayCheck(reader) {
+  window.clearTimeout(readerSettleTimer);
+  readerSettleTimer = window.setTimeout(() => {
+    readerSettleTimer = 0;
+    checkReaderDisplay(reader);
+  }, 1200);
+}
+
 function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   closeImageLightbox({ immediate: true });
   const reader = document.querySelector("#reader");
@@ -1118,9 +1245,12 @@ function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   requestAnimationFrame(() => titleElement.focus({ preventScroll: true }));
 
   if (!wasOpen) animateReaderTransition(reader, true, { sourceLink, sourceRect });
+  scheduleReaderDisplayCheck(reader);
 }
 
 function hideReader({ restoreFocus = true } = {}) {
+  window.clearTimeout(readerSettleTimer);
+  readerSettleTimer = 0;
   const reader = document.querySelector("#reader");
   const returnLink = currentOpenSource?.href ? findCurrentDetailLink(currentOpenSource.href) : null;
 
@@ -1402,13 +1532,22 @@ const MORPH_EASING = "cubic-bezier(0.65, 0, 0.35, 1)";
   取一个元素在视口里的有效矩形。完全在屏幕外或尺寸太小时返回 null，
   这样从浏览器历史直接打开详情时，会走原来的轻量淡入淡出。
 */
+function isRectVisible(rect) {
+  return Boolean(
+    rect &&
+    rect.width >= 32 &&
+    rect.height >= 24 &&
+    rect.bottom > 0 &&
+    rect.top < window.innerHeight &&
+    rect.right > 0 &&
+    rect.left < window.innerWidth
+  );
+}
+
 function getVisibleRect(element) {
   if (!element?.isConnected) return null;
   const rect = element.getBoundingClientRect();
-  if (rect.width < 32 || rect.height < 24) return null;
-  if (rect.bottom <= 0 || rect.top >= window.innerHeight) return null;
-  if (rect.right <= 0 || rect.left >= window.innerWidth) return null;
-  return rect;
+  return isRectVisible(rect) ? rect : null;
 }
 
 // 用一条 transform 把 fromRect 精确映射到 toRect（元素默认以中心为原点缩放）。
@@ -1488,6 +1627,10 @@ function cancelReaderMotion() {
   const motion = readerMotion;
   readerMotion = null;
   if (motion.timer) window.clearTimeout(motion.timer);
+  if (motion.revealTimer) window.clearTimeout(motion.revealTimer);
+  motion.hiddenContent.forEach((element) => {
+    element.style.visibility = "";
+  });
   motion.animations.forEach((animation) => animation.cancel());
   removeReaderMorphGhost(motion.ghost);
   motion.sourceLink?.classList.remove("is-morph-source");
@@ -1513,11 +1656,21 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
   cancelReaderMotion();
   if (prefersReducedMotion()) return;
 
-  const motion = { animations: [], ghost: null, sourceLink: null, timer: null };
+  const motion = {
+    animations: [],
+    ghost: null,
+    sourceLink: null,
+    timer: null,
+    revealTimer: 0,
+    hiddenContent: [],
+  };
   readerMotion = motion;
 
-  // 打开前卡片已经被量好尺寸；关闭时再量一次，避免期间页面滚动造成偏差。
-  const cardRect = opening ? sourceRect || getVisibleRect(sourceLink) : getVisibleRect(sourceLink);
+  // 打开前卡片已经被量好尺寸；但如果是从详情 URL 直接打开、卡片还在屏幕外，
+  // 就不能拿它当形变起点，否则会从屏幕外长出一张纸，正文也迟迟不出现。
+  const cardRect = opening
+    ? (isRectVisible(sourceRect) ? sourceRect : null)
+    : getVisibleRect(sourceLink);
   let ghost = null;
   if (opening && cardRect) {
     try {
@@ -1538,8 +1691,7 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
   try {
     if (opening && ghost) {
       const readerRect = reader.getBoundingClientRect();
-      // 真正的阅读纸从卡片矩形长到全屏矩形。纸面上暂时不放内容，
-      // 所以放大过程中不会出现被拉伸的文字。
+      // 真正的阅读纸从卡片矩形长到全屏矩形。
       const readerFrom = morphTransform(readerRect, cardRect);
       motion.animations.push(ghost.animate([
         { transform: "translate3d(0, 0, 0) scale(1, 1)", opacity: 1, offset: 0 },
@@ -1559,29 +1711,39 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
         easing: MORPH_EASING,
         fill: "both",
       }));
-      motion.animations.push(reader.animate([
-        { opacity: 0.7 },
-        { opacity: 1 },
-      ], { duration: 140, easing: "ease-out", fill: "both" }));
 
-      // 纸面基本铺开后再让标题栏和正文淡入。
+      /*
+        正文不再用透明度动画隐藏，而是先用 visibility 藏起来，纸面基本铺开后再显示。
+        这样即使某个 Chromium 版本把“已经结束的透明层”留在空白状态，也只会影响
+        动画本身，不会把正文永久留在 opacity: 0。
+      */
       if (bar) {
-        motion.animations.push(bar.animate([
-          { opacity: 0 },
-          { opacity: 1 },
-        ], { duration: 260, delay: 250, easing: "ease-out", fill: "both" }));
+        bar.style.opacity = "";
+        bar.style.visibility = "hidden";
+        motion.hiddenContent.push(bar);
       }
       if (panel) {
+        panel.style.opacity = "";
+        panel.style.transform = "";
+        panel.style.visibility = "hidden";
+        motion.hiddenContent.push(panel);
         motion.animations.push(panel.animate([
-          { opacity: 0, transform: "translate3d(0, 12px, 0)" },
-          { opacity: 1, transform: "translate3d(0, 0, 0)" },
+          { transform: "translate3d(0, 12px, 0)" },
+          { transform: "translate3d(0, 0, 0)" },
         ], {
-          duration: 280,
-          delay: 270,
+          duration: 220,
+          delay: Math.round(MORPH_OPEN_DURATION * 0.88),
           easing: MORPH_EASING,
           fill: "both",
         }));
       }
+      motion.revealTimer = window.setTimeout(() => {
+        motion.revealTimer = 0;
+        motion.hiddenContent.forEach((element) => {
+          element.style.visibility = "";
+        });
+      }, Math.round(MORPH_OPEN_DURATION * 0.88));
+
       if (scrim) {
         motion.animations.push(scrim.animate([
           { opacity: 0 },
@@ -1628,30 +1790,65 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
           { opacity: 0 },
         ], { duration: 420, delay: 20, easing: "ease-in", fill: "both" }));
       }
-    } else {
-      // 没有可用的来源卡片（例如直接打开详情链接）时，保留原来的轻量进出。
-      // 起始透明度留 0.7，即使动画时间线被浏览器暂停也不会完全看不见内容。
-      const fallbackStart = opening ? { ...READER_DISMISSED, opacity: 0.7 } : start;
-      const fallbackPanelStart = opening ? { ...READER_CONTENT_DISMISSED, opacity: 0.7 } : panelStart;
-      const options = {
-        duration: opening ? 480 : 360,
-        delay: opening ? 0 : 40,
-        easing: opening ? "cubic-bezier(0.22, 1, 0.36, 1)" : "cubic-bezier(0.4, 0, 1, 1)",
+    } else if (opening) {
+      /*
+        没有来源卡片时（例如直接打开/刷新详情 URL），正文从第一帧就保持可见，
+        只让阅读纸做一次轻微上浮。这样这里也不可能因为透明度动画卡住而出现空白。
+      */
+      reader.style.opacity = "";
+      reader.style.transform = "";
+      if (panel) {
+        panel.style.opacity = "";
+        panel.style.transform = "";
+        panel.style.visibility = "";
+      }
+      if (bar) bar.style.visibility = "";
+
+      motion.animations.push(reader.animate([
+        { transform: "translate3d(0, 26px, 0) scale(0.986)" },
+        { transform: "translate3d(0, 0, 0) scale(1)" },
+      ], {
+        duration: 380,
+        easing: MORPH_EASING,
         fill: "both",
-      };
-      motion.animations.push(reader.animate([fallbackStart, opening ? READER_REST : READER_DISMISSED], options));
-      // 面板先展开，正文稍后跟入；退出时正文先收起，整张纸再离开。
+      }));
       if (panel) {
         motion.animations.push(panel.animate([
-          fallbackPanelStart,
-          opening ? READER_CONTENT_REST : READER_CONTENT_DISMISSED,
-        ], { ...options, duration: opening ? 400 : 320, delay: opening ? 80 : 0 }));
+          { transform: "translate3d(0, 10px, 0)" },
+          { transform: "translate3d(0, 0, 0)" },
+        ], {
+          duration: 300,
+          delay: 60,
+          easing: MORPH_EASING,
+          fill: "both",
+        }));
+      }
+      if (scrim) {
+        motion.animations.push(scrim.animate([
+          { opacity: 0 },
+          { opacity: 1 },
+        ], { duration: 360, easing: "ease-out", fill: "both" }));
+      }
+    } else {
+      // 没有来源卡片时的退出：正文先收，整张纸再离开。
+      const options = {
+        duration: 360,
+        delay: 40,
+        easing: "cubic-bezier(0.4, 0, 1, 1)",
+        fill: "both",
+      };
+      motion.animations.push(reader.animate([start, READER_DISMISSED], options));
+      if (panel) {
+        motion.animations.push(panel.animate([
+          panelStart,
+          READER_CONTENT_DISMISSED,
+        ], { ...options, duration: 320 }));
       }
       if (scrim) {
         motion.animations.push(scrim.animate([
           { opacity: scrimOpacity },
-          { opacity: opening ? 1 : 0 },
-        ], { ...options, duration: opening ? 480 : 400, delay: 0 }));
+          { opacity: 0 },
+        ], { ...options, duration: 400 }));
       }
     }
     const animationsDone = Promise.all(
@@ -1674,7 +1871,12 @@ async function animateReaderTransition(reader, opening, { sourceLink = null, sou
       motion.timer = null;
     }
     // 退出动画保留最后一帧，等 hideReader 一次性隐藏并清理，避免闪回。
-    if (opening && readerMotion === motion) cancelReaderMotion();
+    if (opening && readerMotion === motion) {
+      cancelReaderMotion();
+      requestAnimationFrame(() => {
+        if (isReaderOpen() && !isClosingReader) refreshReaderPanel(reader);
+      });
+    }
   }
 }
 
@@ -1940,6 +2142,70 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+/*
+  浏览器里偶尔会遇到阅读层“看起来是空的”的情况，但终端只能看到静态服务器日志。
+  带 ?debug=1 打开页面时，右下角会显示一个实时状态面板，方便截图定位；
+  正常访问不会创建它，也没有额外开销。
+*/
+function setupReaderDebugHud() {
+  if (!new URLSearchParams(window.location.search).has("debug")) return;
+
+  const hud = document.createElement("pre");
+  hud.id = "reader-debug-hud";
+  Object.assign(hud.style, {
+    position: "fixed",
+    left: "8px",
+    bottom: "8px",
+    zIndex: "10000",
+    maxWidth: "min(600px, 92vw)",
+    maxHeight: "42vh",
+    margin: "0",
+    padding: "8px 10px",
+    overflow: "auto",
+    borderRadius: "8px",
+    background: "rgba(0, 0, 0, 0.84)",
+    color: "#fff",
+    font: "11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace",
+    whiteSpace: "pre-wrap",
+    pointerEvents: "none",
+  });
+  document.body.append(hud);
+
+  const warnings = [];
+  const originalWarn = console.warn.bind(console);
+  console.warn = (...args) => {
+    warnings.push(args.map((value) => String(value)).join(" "));
+    originalWarn(...args);
+  };
+  window.addEventListener("error", (event) => warnings.push(`error: ${event.message}`));
+  window.addEventListener("unhandledrejection", (event) => warnings.push(`rejection: ${event.reason}`));
+
+  const render = () => {
+    const reader = document.querySelector("#reader");
+    const panel = reader?.querySelector(".reader-panel");
+    const body = reader?.querySelector(".reader-body");
+    const title = reader?.querySelector(".reader-title");
+    const bar = reader?.querySelector(".reader-bar");
+    const rect = reader?.getBoundingClientRect();
+
+    hud.textContent = [
+      `hash: ${window.location.hash || "(none)"}`,
+      `reader: ${reader?.classList.contains("is-open") ? "open" : "closed"}  motion: ${readerMotion ? "yes" : "no"}  closing: ${isClosingReader}`,
+      `title: ${title?.textContent?.trim() || ""}`,
+      `body: ${body?.innerText.trim().length || 0} chars`,
+      `opacity reader/panel/bar: ${reader ? getComputedStyle(reader).opacity : "-"} / ${panel ? getComputedStyle(panel).opacity : "-"} / ${bar ? getComputedStyle(bar).opacity : "-"}`,
+      `transform: ${reader ? getComputedStyle(reader).transform : "-"}`,
+      `rect: ${rect ? `${Math.round(rect.width)}×${Math.round(rect.height)} @ ${Math.round(rect.left)},${Math.round(rect.top)}` : "-"}`,
+      `broken: ${reader ? readerDisplayBroken(reader) : "-"}`,
+      `ghost: ${document.querySelectorAll(".reader-morph-ghost").length}`,
+      `warnings: ${warnings.length ? `\n${warnings.slice(-5).join("\n")}` : "(none)"}`,
+    ].join("\n");
+  };
+
+  render();
+  window.setInterval(render, 400);
+}
+
 document.querySelector("#reader")?.addEventListener("scroll", updateReaderProgress, { passive: true });
 
 /*
@@ -1949,6 +2215,7 @@ document.querySelector("#reader")?.addEventListener("scroll", updateReaderProgre
   3. 更新一次导航状态。
   4. 读取内容文件并渲染笔记、仓库、相册、更新。
 */
+setupReaderDebugHud();
 setupThemeToggle();
 setupTermTip();
 setupNavLens();
