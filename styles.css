@@ -60,7 +60,6 @@
     0 14px 24px -9px rgba(46, 35, 24, 0.55),
     0 4px 9px -5px rgba(46, 35, 24, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.98);
-  --ripple: rgba(23, 21, 15, 0.26);
   --reader-bg: rgba(247, 244, 236, 0.985);
   --reader-scrim: rgba(23, 21, 15, 0.44);
   --ambient-a: rgba(214, 148, 104, 0.18);
@@ -126,7 +125,6 @@
     0 14px 26px -9px rgba(0, 0, 0, 0.88),
     0 4px 9px -5px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  --ripple: rgba(255, 255, 255, 0.34);
   --reader-bg: rgba(22, 20, 17, 0.985);
   --reader-scrim: rgba(0, 0, 0, 0.64);
   --ambient-a: rgba(196, 112, 70, 0.18);
@@ -170,7 +168,6 @@
       0 14px 26px -9px rgba(0, 0, 0, 0.88),
       0 4px 9px -5px rgba(0, 0, 0, 0.55),
       inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    --ripple: rgba(255, 255, 255, 0.34);
     --reader-bg: rgba(22, 20, 17, 0.985);
     --reader-scrim: rgba(0, 0, 0, 0.64);
     --ambient-a: rgba(196, 112, 70, 0.18);
@@ -2520,44 +2517,6 @@ body.is-reader-open .reader-scrim {
   transform: scale(1.06);
 }
 
-/* ================================================================
-   15. 液态交互：点击涟漪
-   ================================================================ */
-/* 点击时从指针位置扩散的一圈光，模拟玻璃被按下去的感觉。 */
-.tap-ripple {
-  position: absolute;
-  z-index: 5;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.55) 0 8%, transparent 38%),
-    radial-gradient(circle, var(--ripple) 0%, transparent 70%);
-  opacity: 0.9;
-  pointer-events: none;
-  animation: tap-ripple 620ms var(--ease-liquid) forwards;
-}
-
-@keyframes tap-ripple {
-  from {
-    opacity: 0.8;
-    transform: scale(0.18);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(1);
-  }
-}
-
-/* 让涟漪可以裁切在圆角里。 */
-.button,
-.note-filters button,
-.theme-toggle,
-.primary-nav a,
-.reader-back {
-  position: relative;
-  overflow: hidden;
-}
-
 .content-link,
 .button,
 .note-filters button,
@@ -3166,7 +3125,102 @@ body.is-reader-open .reader-scrim {
 }
 
 /* ================================================================
-   17. 动效偏好与打印
+   17. 手机 / iPad 底部导航
+   ================================================================ */
+/*
+  桌面端 .nav-dock 永远是空的、也不显示；手机和 iPad 上脚本会把 .primary-nav
+  移动到这里，固定在屏幕底部。iPad 再通过 body.nav-dock-ipad 收进左下角。
+*/
+.nav-dock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 48;
+  display: none;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+}
+
+body.nav-docked .nav-dock {
+  display: block;
+}
+
+/* 主导航离开页头后，页头只剩品牌和右侧按钮，改成两列避免中间空一格。 */
+body.nav-docked .site-header {
+  grid-template-columns: 1fr auto;
+}
+
+body.nav-docked .nav-dock .primary-nav {
+  width: max-content;
+  max-width: 100%;
+  padding: 5px;
+  border-color: var(--glass-border);
+  background: var(--reader-bg);
+  box-shadow:
+    var(--glass-highlight),
+    0 22px 46px -24px rgba(46, 35, 24, 0.62);
+}
+
+body.nav-docked .nav-dock .primary-nav a {
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+/* iPad：导航固定在左下角，横屏时也不用把手伸到屏幕中间。 */
+body.nav-docked.nav-dock-ipad .nav-dock {
+  left: max(20px, env(safe-area-inset-left, 0px));
+  max-width: calc(100% - 40px);
+  transform: none;
+}
+
+body.nav-docked.nav-dock-ipad .nav-dock .primary-nav a {
+  padding: 11px 16px;
+  font-size: 14px;
+}
+
+/* 给底部悬浮导航留出空间，页脚最后一行不会被挡住。 */
+body.nav-docked {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+/* 阅读层打开 / 灯箱打开时隐藏底部导航，避免和详情操作打架。 */
+body.is-reader-open .nav-dock,
+body.is-lightbox-open .nav-dock {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+  手机 / iPad 的详情页导航条也从顶部挪到底部，返回列表就在拇指附近。
+  用 fixed 而不是 sticky，阅读层内部滚动时它也始终贴着屏幕底部。
+*/
+body.nav-docked .reader-section {
+  padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+}
+
+body.nav-docked .reader-bar {
+  position: fixed;
+  top: auto;
+  left: 50%;
+  right: auto;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  box-shadow:
+    var(--glass-highlight),
+    0 22px 46px -22px rgba(46, 35, 24, 0.68);
+}
+
+body.nav-docked.nav-dock-ipad .reader-bar {
+  left: max(20px, env(safe-area-inset-left, 0px));
+  width: min(560px, calc(100% - 40px));
+  transform: none;
+}
+
+/* ================================================================
+   18. 动效偏好与打印
    ================================================================ */
 /* 系统开启“降低透明度”时，退回不透明纸面，优先保证可读性。 */
 @media (prefers-reduced-transparency: reduce) {
@@ -3234,6 +3288,7 @@ body.is-reader-open .reader-scrim {
   body::after,
   .page-progress,
   .reader-scrim,
+  .nav-dock,
   .site-header,
   .hero-visual,
   .hero-actions,

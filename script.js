@@ -18,6 +18,9 @@ const navLinks = document.querySelectorAll("[data-nav]");
 const navElement = document.querySelector(".primary-nav");
 const navLensElement = navElement?.querySelector(".nav-lens");
 const pageShell = document.querySelector(".page-shell");
+const siteHeader = document.querySelector(".site-header");
+const headerActions = document.querySelector(".header-actions");
+const navDock = document.querySelector(".nav-dock");
 const CONTENT_VERSION = "20261021-57";
 const BASE_TITLE = "Chen 的实验台";
 
@@ -46,6 +49,63 @@ let imageLightboxSession = null;
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/*
+  手机端把主导航放到底部，iPad 再把它固定到左下角；桌面端完全不变。
+  这里优先看设备类型，而不是只依赖宽度，避免 iPad 横屏时又跑回顶部。
+*/
+function detectIPad() {
+  const ua = navigator.userAgent || "";
+  if (/iPad/.test(ua)) return true;
+  // iPadOS 13 起默认伪装成 Mac，只能靠多点触控判断。
+  return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+const isIPadDevice = detectIPad();
+const narrowNavQuery = window.matchMedia("(max-width: 640px)");
+const touchNavQuery = window.matchMedia("(hover: none) and (pointer: coarse)");
+const wideTouchQuery = window.matchMedia("(max-width: 900px)");
+
+if (isIPadDevice) document.documentElement.classList.add("is-ipad");
+
+function shouldDockNav() {
+  if (isIPadDevice) return true;
+  if (narrowNavQuery.matches) return true;
+  // 手机横屏后宽度会超过 640px，触屏设备仍然把导航放到底部。
+  return touchNavQuery.matches && wideTouchQuery.matches;
+}
+
+// 阅读层或灯箱打开时，底部导航不应该还能被 Tab 或误触到。
+function syncNavDockInert() {
+  if (!navDock) return;
+  navDock.inert =
+    document.body.classList.contains("is-reader-open") ||
+    document.body.classList.contains("is-lightbox-open");
+}
+
+function syncNavPlacement() {
+  if (!navElement || !navDock || !siteHeader) return;
+
+  const docked = shouldDockNav();
+  // 先让底部容器显示，再移动节点；否则在 display: none 的容器里量到的是 0。
+  document.body.classList.toggle("nav-docked", docked);
+  document.body.classList.toggle("nav-dock-ipad", docked && isIPadDevice);
+
+  const targetParent = docked ? navDock : siteHeader;
+  if (navElement.parentElement !== targetParent) {
+    if (docked) {
+      navDock.append(navElement);
+    } else {
+      siteHeader.insertBefore(navElement, headerActions || null);
+    }
+    // 菜单位置换了，药丸的位置和宽度都要重新量。
+    measureNavLinks();
+    navLensTarget = null;
+    syncNavLens(true);
+  }
+
+  syncNavDockInert();
 }
 
 function isReaderOpen() {
@@ -1231,6 +1291,7 @@ function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   reader.querySelector(".reader-back").setAttribute("href", backHref);
   document.body.classList.add("is-reader-open");
   document.body.classList.remove("is-header-hidden");
+  syncNavDockInert();
   reader.classList.add("is-open");
   reader.setAttribute("aria-hidden", "false");
   reader.inert = false;
@@ -1261,6 +1322,7 @@ function hideReader({ restoreFocus = true } = {}) {
   closeImageLightbox({ immediate: true });
   document.body.classList.remove("is-reader-open");
   document.body.classList.remove("is-header-hidden");
+  syncNavDockInert();
   if (pageShell) pageShell.inert = false;
   document.title = BASE_TITLE;
 
@@ -1337,6 +1399,7 @@ function openImageLightbox(src, alt = "", sourceButton = null) {
   lightbox.classList.add("is-open");
   lightbox.setAttribute("aria-hidden", "false");
   document.body.classList.add("is-lightbox-open");
+  syncNavDockInert();
   source?.classList.add("is-lightbox-source");
 
   // 灯箱打开时，把阅读层也设为 inert，Tab 不会跑到背后的正文里。
@@ -1372,6 +1435,7 @@ function closeImageLightbox({ immediate = false } = {}) {
     session.lightbox.classList.remove("is-open");
     session.lightbox.setAttribute("aria-hidden", "true");
     document.body.classList.remove("is-lightbox-open");
+    syncNavDockInert();
 
     const reader = document.querySelector("#reader");
     if (reader?.classList.contains("is-open")) reader.inert = false;
@@ -1978,48 +2042,6 @@ async function renderContent() {
 }
 
 /*
-  点击涟漪：在点击位置生成一圈光，让按下动作也有“液态玻璃”的反馈。
-  光斑会裁切在卡片/按钮自身的圆角里，动画结束后自动移除。
-*/
-const TAP_SELECTOR = ".content-link, .button, .note-filters button, .theme-toggle, .reader-back, .primary-nav a";
-
-function findRippleSurface(target) {
-  if (target.matches(".content-link")) {
-    return target.querySelector(".note-card, .repo-card, .update-card, .gallery-item figure") || target;
-  }
-  return target;
-}
-
-document.addEventListener(
-  "pointerdown",
-  (event) => {
-    if (event.button !== 0 || prefersReducedMotion()) return;
-    // 手指按下通常是要滚动页面，不要在卡片上留下白色光斑。
-    if (event.pointerType === "touch") return;
-
-    const target = event.target.closest(TAP_SELECTOR);
-    if (!target) return;
-
-    const surface = findRippleSurface(target);
-    if (!surface) return;
-
-    const rect = surface.getBoundingClientRect();
-    const size = Math.min(620, Math.max(rect.width, rect.height) * 1.05);
-    const ripple = document.createElement("span");
-    ripple.className = "tap-ripple";
-    ripple.setAttribute("aria-hidden", "true");
-    ripple.style.left = `${event.clientX - rect.left - size / 2}px`;
-    ripple.style.top = `${event.clientY - rect.top - size / 2}px`;
-    ripple.style.width = `${size}px`;
-    ripple.style.height = `${size}px`;
-    surface.append(ripple);
-
-    ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
-  },
-  { passive: true }
-);
-
-/*
   “耐操”的注释卡：桌面悬停由 CSS 负责，
   这里补上点击切换和点击空白/按 Esc 关闭，方便触屏和键盘。
 */
@@ -2119,10 +2141,14 @@ window.addEventListener("resize", () => {
     sizeLightboxImage(imageLightboxSession);
   }
   updateReaderProgress();
-  // 宽度变了，菜单项的缓存尺寸要重新量。
+  // 宽度变了，菜单项的缓存尺寸要重新量；跨过断点时还要把导航挪回页头 / 移到底部。
+  syncNavPlacement();
   measureNavLinks();
   syncNavLens(true);
 });
+narrowNavQuery.addEventListener("change", syncNavPlacement);
+touchNavQuery.addEventListener("change", syncNavPlacement);
+wideTouchQuery.addEventListener("change", syncNavPlacement);
 window.addEventListener("scroll", handlePageScroll, { passive: true });
 window.addEventListener("hashchange", handleRoute);
 window.addEventListener("popstate", handleRoute);
@@ -2218,6 +2244,7 @@ document.querySelector("#reader")?.addEventListener("scroll", updateReaderProgre
 setupReaderDebugHud();
 setupThemeToggle();
 setupTermTip();
+syncNavPlacement();
 setupNavLens();
 prepareReveal();
 updateActiveNav();

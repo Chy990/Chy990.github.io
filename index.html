@@ -48,7 +48,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261021-65" />
+    <link rel="stylesheet" href="./styles.css?v=20261021-66" />
   </head>
   <body>
     <!-- 键盘用户可以直接跳过导航，进入正文。 -->
@@ -62,6 +62,13 @@
 
     <!-- 页面滚动进度条，纯 CSS 滚动驱动，不支持时自动隐藏。 -->
     <div class="page-progress" aria-hidden="true"></div>
+
+    <!--
+      手机和 iPad 的主导航容器：脚本会把 .primary-nav 移动到这里，
+      让它固定在屏幕底部（iPad 在左下角），拇指更容易够到；桌面端仍留在页头。
+      放在正文之前，键盘用户按 Tab 时会先经过导航，再进入内容。
+    -->
+    <div class="nav-dock"></div>
 
     <div class="page-shell">
       <!-- 顶部导航：品牌 / 一级菜单 / GitHub 与主题开关。 -->
@@ -340,6 +347,6 @@
     <!-- 自动生成的内容清单；平时只增删 content 里的文件即可。 -->
     <script src="./content/content-index.js?v=20261021-57"></script>
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261021-65"></script>
+    <script src="./script.js?v=20261021-66"></script>
   </body>
 </html>
