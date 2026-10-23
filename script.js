@@ -48,6 +48,9 @@ let navLensTarget = null;
 let navTracking = false;
 let navPinnedLink = null;
 let navPinTimer = null;
+let navLastPointerType = "";
+let navTrackFrame = 0;
+let navTrackClientX = 0;
 let imageLightboxSession = null;
 let readerBarMotion = null;
 
@@ -556,44 +559,64 @@ function setNavLensPosition(link) {
 /*
   触屏拖动时药丸不被“吸附”到某个菜单项，而是以手指为中心连续移动。
   宽度仍然取最近菜单项的宽度，文字缩放也落到最近项上。
+
+  这里只读一次导航容器位置，最近项用缓存的 offsetLeft / offsetWidth 计算，
+  避免每次 pointermove 都对每个链接调用 getBoundingClientRect() 触发布局。
 */
 function setNavLensTracking(clientX) {
-  if (!navElement || !navLensElement) return;
+  if (!navElement || !navLensElement || !navTracking || !navLinkMetrics.length) return;
 
-  const links = [...navElement.querySelectorAll("a")];
-  if (!links.length) return;
+  const navRect = navElement.getBoundingClientRect();
+  const localX = clientX - navRect.left - navElement.clientLeft;
 
-  let nearest = links[0];
+  let nearestMetric = navLinkMetrics[0];
   let nearestDistance = Infinity;
 
-  for (const link of links) {
-    const rect = link.getBoundingClientRect();
-    const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+  for (const metric of navLinkMetrics) {
+    const center = metric.left + metric.width / 2;
+    const distance = Math.abs(localX - center);
     if (distance < nearestDistance) {
       nearestDistance = distance;
-      nearest = link;
+      nearestMetric = metric;
     }
   }
 
-  if (nearest !== navHoverLink) {
-    navHoverLink = nearest;
-    navLinks.forEach((link) => link.classList.toggle("is-lens-target", link === nearest));
+  if (nearestMetric.link !== navHoverLink) {
+    navHoverLink = nearestMetric.link;
+    navLinks.forEach((link) => link.classList.toggle("is-lens-target", link === nearestMetric.link));
   }
 
-  const nearestMetric = navLinkMetric(nearest);
-  const width = nearestMetric ? nearestMetric.width : nearest.offsetWidth;
-  const navRect = navElement.getBoundingClientRect();
-  const localX = clientX - navRect.left - navElement.clientLeft;
-  const firstMetric = navLinkMetric(links[0]);
-  const lastMetric = navLinkMetric(links[links.length - 1]);
-  const minX = firstMetric ? firstMetric.left : 0;
-  const maxX = lastMetric ? lastMetric.left + lastMetric.width - width : localX;
+  const width = nearestMetric.width;
+  const firstMetric = navLinkMetrics[0];
+  const lastMetric = navLinkMetrics[navLinkMetrics.length - 1];
+  const minX = firstMetric.left;
+  const maxX = lastMetric.left + lastMetric.width - width;
   const left = Math.min(maxX, Math.max(minX, localX - width / 2));
 
   navLensElement.style.setProperty("--lens-x", `${left}px`);
   navLensElement.style.setProperty("--lens-w", `${width}px`);
-  navLensElement.classList.add("is-visible", "is-tracking");
   navLensTarget = null;
+}
+
+/*
+  指针在 iPad 上可能以 120Hz 触发，而每次移动都要写样式。
+  合并到下一帧再更新，最多每帧一次，拖动更稳。
+*/
+function queueNavLensTracking(clientX) {
+  navTrackClientX = clientX;
+  if (navTrackFrame) return;
+
+  navTrackFrame = window.requestAnimationFrame(() => {
+    navTrackFrame = 0;
+    if (!navTracking) return;
+    setNavLensTracking(navTrackClientX);
+  });
+}
+
+function cancelQueuedNavLensTracking() {
+  if (!navTrackFrame) return;
+  window.cancelAnimationFrame(navTrackFrame);
+  navTrackFrame = 0;
 }
 
 function syncNavLens(force = false) {
@@ -661,7 +684,8 @@ function pinNavLens(link) {
 
   clearNavPin();
   navPinnedLink = link;
-  navHoverLink = link;
+  // 触屏没有真正的 hover：药丸靠 pin 固定，避免 :hover 残留把药丸粘在旧栏目上。
+  navHoverLink = navLastPointerType === "mouse" ? link : null;
   setActiveNavLink(link);
   syncNavLens();
 
@@ -669,7 +693,10 @@ function pinNavLens(link) {
     if (navPinnedLink !== link) return;
     navPinnedLink = null;
     navPinTimer = null;
-    if (!navElement.matches(":hover")) navHoverLink = null;
+    // iPad 点按后 :hover 会残留，不能用它判断指针是否还停在菜单上。
+    if (navLastPointerType !== "mouse" || !navElement.matches(":hover")) {
+      navHoverLink = null;
+    }
     syncNavLens();
   }, 2000);
 }
@@ -699,12 +726,14 @@ function setupNavLens() {
     touchResetTimer = window.setTimeout(() => {
       navHoverLink = null;
       syncNavLens();
-    }, 1000);
+    }, 500);
   };
 
   navElement.querySelectorAll("a").forEach((link) => {
-    link.addEventListener("pointerenter", () => {
-      if (navTracking) return;
+    link.addEventListener("pointerenter", (event) => {
+      navLastPointerType = event.pointerType;
+      // 触屏也会触发 pointerenter，但它不代表“悬停”，交给 pointerdown 处理。
+      if (event.pointerType !== "mouse" || navTracking) return;
       if (navPinnedLink && navPinnedLink !== link) clearNavPin();
       navHoverLink = link;
       syncNavLens();
@@ -714,8 +743,11 @@ function setupNavLens() {
   navElement.addEventListener("pointerdown", (event) => {
     // 新的一次按下意味着上一次拖动已经结束，不再拦截新的 click。
     suppressNavClickUntil = 0;
+    navLastPointerType = event.pointerType;
+    cancelQueuedNavLensTracking();
 
-    if (event.pointerType === "mouse" || event.button !== 0 || touchState) return;
+    // 新的一次按下直接接管旧的手势，避免上一次 pointerup 丢失后药丸再也拖不动。
+    if (event.pointerType === "mouse" || event.button !== 0) return;
 
     const link = event.target.closest("a");
     if (!link || !navElement.contains(link)) return;
@@ -733,11 +765,13 @@ function setupNavLens() {
     navHoverLink = link;
     navLinks.forEach((item) => item.classList.toggle("is-lens-target", item === link));
     setNavLensPosition(link);
+    navElement.classList.remove("is-tracking");
     navLensElement.classList.remove("is-tracking");
     navLensElement.classList.add("is-visible");
   });
 
-  navElement.addEventListener(
+  // 监听 document 而不是 nav，手指滑出导航边缘时药丸也能继续跟手。
+  document.addEventListener(
     "pointermove",
     (event) => {
       if (!touchState || event.pointerId !== touchState.pointerId || event.pointerType === "mouse") {
@@ -752,10 +786,13 @@ function setupNavLens() {
         if (Math.abs(dx) < 5 || Math.abs(dx) <= Math.abs(dy)) return;
         touchState.moved = true;
         navTracking = true;
+        navElement.classList.add("is-tracking");
         navLensElement.classList.add("is-tracking");
+        setNavLensTracking(event.clientX);
+        return;
       }
 
-      setNavLensTracking(event.clientX);
+      queueNavLensTracking(event.clientX);
     },
     { passive: true }
   );
@@ -767,16 +804,20 @@ function setupNavLens() {
 
     const state = touchState;
     touchState = null;
+    cancelQueuedNavLensTracking();
 
     if (navTracking) {
       navTracking = false;
+      navElement.classList.remove("is-tracking");
       navLensElement.classList.remove("is-tracking");
 
       if (state.moved && navHoverLink) {
+        // pinNavLens 会清掉触屏的 navHoverLink，先把选中的栏目存下来。
+        const selectedLink = navHoverLink;
         // 拖动结束后手动跳到选中的栏目，并吞掉随后浏览器可能补发的那次 click。
         suppressNavClickUntil = performance.now() + 650;
-        pinNavLens(navHoverLink);
-        navigateNavLink(navHoverLink);
+        pinNavLens(selectedLink);
+        navigateNavLink(selectedLink);
       }
 
       syncNavLens(true);
@@ -785,6 +826,7 @@ function setupNavLens() {
     }
 
     // 普通点按：交给原生 click 完成跳转。
+    navElement.classList.remove("is-tracking");
     navLensElement.classList.remove("is-tracking");
     syncNavLens(true);
     scheduleTouchReset();
@@ -794,7 +836,9 @@ function setupNavLens() {
     if (!touchState || event.pointerId !== touchState.pointerId) return;
 
     touchState = null;
+    cancelQueuedNavLensTracking();
     navTracking = false;
+    navElement.classList.remove("is-tracking");
     navLensElement.classList.remove("is-tracking");
     navHoverLink = null;
     syncNavLens(true);

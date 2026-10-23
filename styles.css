@@ -526,19 +526,28 @@ body.is-header-hidden .site-header {
 }
 
 /*
-  手指拖动时给药丸一点“追不上手”的阻尼和回弹，
-  同时宽度比按钮略宽一点，像被手指拉长。
+  手指拖动时药丸必须跟手：关掉位移/宽度的过渡，让指针位置直接映射成药丸位置。
+  松手后再恢复上面的过渡，由它滑到最近的栏目。
 */
 .nav-lens.is-tracking {
-  transition:
-    transform 220ms var(--ease-spring),
-    width 220ms var(--ease-spring),
-    opacity 180ms ease;
+  transition: opacity 180ms ease;
 }
 
 .nav-lens.is-tracking::before {
   transform: scale(1.16);
   box-shadow: var(--nav-lens-shadow-lift);
+}
+
+/*
+  iPad 的导航在左下角、又是手指拖动，长距离弹簧会显得拖沓。
+  这里只把 iPad 上的收尾动画换成短距离缓出；桌面端仍保留 520ms 的弹簧手感。
+  拖动中由 .is-tracking 完全关掉位移过渡，优先保证跟手。
+*/
+body.nav-dock-ipad .nav-lens:not(.is-tracking) {
+  transition:
+    width 300ms var(--ease),
+    transform 300ms var(--ease),
+    opacity 180ms ease;
 }
 
 .primary-nav a {
@@ -560,12 +569,22 @@ body.is-header-hidden .site-header {
   transform: scale(1.12);
 }
 
+/* 拖动时文字缩放也要立刻跟手，不能比药丸慢半拍。 */
+.primary-nav.is-tracking a {
+  transition:
+    color 160ms ease,
+    transform 160ms var(--ease);
+}
+
 .primary-nav a::after {
   display: none;
 }
 
-.primary-nav a:hover {
-  color: var(--ink);
+/* iPad 点按后会残留 :hover，把悬停效果限制在真正支持悬停的设备上。 */
+@media (hover: hover) {
+  .primary-nav a:hover {
+    color: var(--ink);
+  }
 }
 
 .primary-nav a.is-active {
