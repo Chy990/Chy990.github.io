@@ -3,7 +3,7 @@
   ------------------------------------------------------------------
   设计方向：纸上档案馆 × 液态玻璃。
   - 暖纸底色 + 墨色文字 + 朱砂红唯一强调色
-  - 宋体做大标题与长文阅读，无衬线做界面，等宽字体做日期与编号
+  - 苹果系统字体：SF Pro 做拉丁与数字，苹方（PingFang SC）做中文标题与正文
   - 用细规则线、编号、图版构成秩序；卡片与控件是半透明玻璃 + 大圆角
   - 浅色 / 深色两套变量；<html data-theme="light|dark">
   ------------------------------------------------------------------
@@ -74,12 +74,16 @@
 
   --photo-filter: saturate(0.94) contrast(1.02);
 
-  --font-serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC",
-    "Source Han Serif CN", "SimSun", serif;
+  /* 苹果设备系统字体：拉丁字母走 SF Pro，中文走苹方（PingFang SC）。 */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
-    "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  --font-mono: "SF Mono", "JetBrains Mono", "IBM Plex Mono", "Menlo", "Consolas",
-    monospace;
+    "Hiragino Sans GB", "Helvetica Neue", "Noto Sans SC", "Microsoft YaHei",
+    sans-serif;
+  /* 大字号使用 Display 光学尺寸，字距更紧、笔画更利落。 */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", "Noto Sans SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, "Menlo", "JetBrains Mono",
+    "IBM Plex Mono", "Consolas", monospace;
 
   --shell: 1240px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -211,6 +215,7 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 16px;
+  font-optical-sizing: auto;
   line-height: 1.7;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -428,9 +433,10 @@ body.is-header-hidden .site-header {
   align-items: center;
   justify-self: start;
   gap: 11px;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 19px;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .brand-mark {
@@ -444,8 +450,9 @@ body.is-header-hidden .site-header {
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 8px 18px -8px var(--accent);
   color: var(--accent-ink);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 14px;
+  font-weight: 600;
   line-height: 1;
   transform: rotate(-3deg);
 }
@@ -718,11 +725,11 @@ body.is-header-hidden .site-header {
 h1 {
   max-width: 9.2em;
   margin: 0 0 28px;
-  font-family: var(--font-serif);
-  font-size: clamp(46px, 7.1vw, 98px);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.06;
+  font-family: var(--font-display);
+  font-size: clamp(46px, 7.1vw, 96px);
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  line-height: 1.07;
   text-wrap: balance;
 }
 
@@ -1130,11 +1137,11 @@ h1 em {
 
 .journal-card strong {
   display: block;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 24px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 1.45;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.5;
 }
 
 .journal-card p {
@@ -1177,11 +1184,11 @@ h1 em {
 
 h2 {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(32px, 4.4vw, 52px);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.05;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.08;
 }
 
 .section-heading .eyebrow {
@@ -1311,11 +1318,11 @@ h2 {
 .note-card h3 {
   grid-area: title;
   margin: 0 0 10px;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(22px, 2.2vw, 28px);
-  font-weight: 400;
-  letter-spacing: 0.005em;
-  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
   transition: color 240ms ease;
 }
 
@@ -1455,10 +1462,11 @@ h2 {
 
 .repo-card h3 {
   margin: 0 0 14px;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 24px;
-  font-weight: 400;
-  line-height: 1.32;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.35;
   transition: color 240ms ease;
 }
 
@@ -1641,7 +1649,7 @@ h2 {
   z-index: 0;
   color: transparent;
   content: counter(album, decimal-leading-zero);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(96px, 11vw, 172px);
   font-weight: 400;
   line-height: 0.8;
@@ -1670,10 +1678,11 @@ h2 {
 .gallery-item figcaption strong {
   display: block;
   margin-bottom: 8px;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(24px, 2.4vw, 32px);
-  font-weight: 400;
-  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
   transition: color 240ms ease;
 }
 
@@ -1804,10 +1813,11 @@ h2 {
 
 .update-card h3 {
   margin: 0 0 14px;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 24px;
-  font-weight: 400;
-  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.35;
   transition: color 240ms ease;
 }
 
@@ -1882,9 +1892,11 @@ h2 {
 .profile-statement {
   max-width: 26em;
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(19px, 2.1vw, 26px);
-  line-height: 1.78;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.72;
   text-wrap: pretty;
 }
 
@@ -1904,9 +1916,11 @@ h2 {
 
 .profile-stats strong {
   display: block;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(36px, 4vw, 52px);
-  font-weight: 400;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
   line-height: 1;
 }
 
@@ -1934,9 +1948,10 @@ h2 {
 
 .footer-brand {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 16px;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .footer-note {
@@ -2083,7 +2098,7 @@ h2 {
   z-index: 0;
   color: transparent;
   content: counter(album, decimal-leading-zero);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(96px, 11vw, 172px);
   font-weight: 400;
   line-height: 0.8;
@@ -2207,11 +2222,11 @@ body.is-reader-open .reader-scrim {
 .reader-title {
   max-width: 18em;
   margin: 0 0 18px;
-  font-family: var(--font-serif);
-  font-size: clamp(34px, 5.6vw, 64px);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.14;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5.6vw, 62px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.16;
   text-wrap: balance;
 }
 
@@ -2237,19 +2252,21 @@ body.is-reader-open .reader-scrim {
 }
 
 .reader-body {
-  max-width: 50em;
+  max-width: 44em;
   color: var(--ink-2);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: clamp(16.5px, 1.4vw, 19px);
-  line-height: 2;
+  letter-spacing: 0.005em;
+  line-height: 1.9;
 }
 
 .reader-body h1,
 .reader-body h2,
 .reader-body h3 {
   color: var(--ink);
-  font-family: var(--font-serif);
-  font-weight: 400;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .reader-body h1 {
