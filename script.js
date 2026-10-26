@@ -49,8 +49,8 @@ let navTracking = false;
 let navPinnedLink = null;
 let navPinTimer = null;
 let navLastPointerType = "";
-let navTrackFrame = 0;
-let navTrackClientX = 0;
+let navScrollFrame = 0;
+let navScrollCleanup = null;
 let imageLightboxSession = null;
 let readerBarMotion = null;
 
@@ -554,19 +554,77 @@ function setNavLensPosition(link) {
   if (!metric) return;
   navLensElement.style.setProperty("--lens-x", `${metric.left}px`);
   navLensElement.style.setProperty("--lens-w", `${metric.width}px`);
+  navLensElement.style.setProperty("--lens-stretch", "0");
 }
 
 /*
-  触屏拖动时药丸不被“吸附”到某个菜单项，而是以手指为中心连续移动。
-  宽度仍然取最近菜单项的宽度，文字缩放也落到最近项上。
+  触屏拖动时药丸不再直接“钉”在手指上，而是用一个很小的弹簧跟着手指走：
+  既保持跟手，又有真实的滞后、惯性和一点点回弹，和桌面端鼠标悬停时的
+  spring 手感保持一致。
 
-  这里只读一次导航容器位置，最近项用缓存的 offsetLeft / offsetWidth 计算，
-  避免每次 pointermove 都对每个链接调用 getBoundingClientRect() 触发布局。
+  三种阶段用不同刚度：
+  - press：刚按下，快速贴到按到的菜单项；
+  - drag：跟手拖动，阻尼略低，药丸会被手指“带”着走；
+  - settle：松手后落位，阻尼更低，收尾带一点回弹。
 */
-function setNavLensTracking(clientX) {
-  if (!navElement || !navLensElement || !navTracking || !navLinkMetrics.length) return;
+const NAV_LENS_SPRINGS = {
+  press: { stiffness: 720, damping: 54 },
+  drag: { stiffness: 520, damping: 38 },
+  settle: { stiffness: 330, damping: 19 },
+};
 
+const navLensMotion = {
+  frame: 0,
+  lastTime: 0,
+  x: 0,
+  width: 0,
+  vx: 0,
+  vw: 0,
+  targetX: 0,
+  targetWidth: 0,
+  clientX: null,
+  navRect: null,
+  phase: "",
+  link: null,
+};
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+// 药丸允许出现的横向范围（相对导航轨道）。
+function navLensBounds(width) {
+  if (!navLinkMetrics.length) return null;
+  const first = navLinkMetrics[0];
+  const last = navLinkMetrics[navLinkMetrics.length - 1];
+  return {
+    min: first.left,
+    max: Math.max(first.left, last.left + last.width - width),
+  };
+}
+
+// 读取药丸此刻真正画在哪儿（可能正处在 CSS 过渡中间），让弹簧从这里接着走。
+function readNavLensVisual() {
+  if (!navElement || !navLensElement) return null;
   const navRect = navElement.getBoundingClientRect();
+  const lensRect = navLensElement.getBoundingClientRect();
+  if (lensRect.width < 1) return null;
+  return {
+    navRect,
+    x: lensRect.left - navRect.left - navElement.clientLeft,
+    width: lensRect.width,
+  };
+}
+
+/*
+  把手指的横坐标映射成药丸目标：中心跟手，但限制在导航轨道内；
+  宽度取最近菜单项的宽度，文字缩放也落到最近项上。
+
+  导航容器位置在按下时缓存一次，指针移动过程中不再读布局。
+*/
+function navLensDragTarget(clientX, navRect) {
+  if (!navElement || !navRect || !navLinkMetrics.length) return null;
+
   const localX = clientX - navRect.left - navElement.clientLeft;
 
   let nearestMetric = navLinkMetrics[0];
@@ -581,46 +639,225 @@ function setNavLensTracking(clientX) {
     }
   }
 
-  if (nearestMetric.link !== navHoverLink) {
-    navHoverLink = nearestMetric.link;
-    navLinks.forEach((link) => link.classList.toggle("is-lens-target", link === nearestMetric.link));
+  const width = nearestMetric.width;
+  const bounds = navLensBounds(width);
+  const left = clampNumber(localX - width / 2, bounds.min, bounds.max);
+
+  return { left, width, link: nearestMetric.link };
+}
+
+function renderNavLensMotion() {
+  if (!navLensElement) return;
+  const motion = navLensMotion;
+  // 速度越快，药丸沿运动方向略微拉长，形成一点点“液体”拉伸。
+  // 拉伸交给内层的 scaleX 做，避免每帧改变 width 触发重排 / 重绘阴影。
+  const stretch = clampNumber(motion.vx * 0.00018, -0.12, 0.12);
+  navLensElement.style.setProperty("--lens-x", `${motion.x}px`);
+  navLensElement.style.setProperty("--lens-w", `${motion.width}px`);
+  navLensElement.style.setProperty("--lens-stretch", stretch.toFixed(4));
+}
+
+function stopNavLensLoop() {
+  if (!navLensMotion.frame) return;
+  window.cancelAnimationFrame(navLensMotion.frame);
+  navLensMotion.frame = 0;
+}
+
+function startNavLensLoop() {
+  if (navLensMotion.frame || !navLensMotion.phase) return;
+  navLensMotion.lastTime = 0;
+  navLensMotion.frame = window.requestAnimationFrame(stepNavLensMotion);
+}
+
+function navLensMotionSettled() {
+  const motion = navLensMotion;
+  return (
+    Math.abs(motion.x - motion.targetX) < 0.2 &&
+    Math.abs(motion.vx) < 2 &&
+    Math.abs(motion.width - motion.targetWidth) < 0.2 &&
+    Math.abs(motion.vw) < 2
+  );
+}
+
+function stepNavLensMotion(now) {
+  navLensMotion.frame = 0;
+  if (!navLensMotion.phase) return;
+
+  const motion = navLensMotion;
+  if (!motion.lastTime) motion.lastTime = now;
+  // 切后台再回来时 dt 会很大，夹住上限，避免弹簧一步跳飞。
+  const dt = clampNumber((now - motion.lastTime) / 1000, 0.001, 0.04);
+  motion.lastTime = now;
+
+  // pointermove 只记录坐标；目标与样式统一在每帧里算，最多每帧写一次。
+  if (motion.phase === "drag" && motion.clientX != null) {
+    const target = navLensDragTarget(motion.clientX, motion.navRect);
+    if (target) {
+      motion.targetX = target.left;
+      motion.targetWidth = target.width;
+      if (target.link !== motion.link) {
+        motion.link = target.link;
+        navHoverLink = target.link;
+        navLinks.forEach((item) => item.classList.toggle("is-lens-target", item === target.link));
+      }
+    }
   }
 
-  const width = nearestMetric.width;
-  const firstMetric = navLinkMetrics[0];
-  const lastMetric = navLinkMetrics[navLinkMetrics.length - 1];
-  const minX = firstMetric.left;
-  const maxX = lastMetric.left + lastMetric.width - width;
-  const left = Math.min(maxX, Math.max(minX, localX - width / 2));
+  if (prefersReducedMotion()) {
+    motion.x = motion.targetX;
+    motion.width = motion.targetWidth;
+    motion.vx = 0;
+    motion.vw = 0;
+  } else {
+    const spring = NAV_LENS_SPRINGS[motion.phase] || NAV_LENS_SPRINGS.drag;
 
-  navLensElement.style.setProperty("--lens-x", `${left}px`);
-  navLensElement.style.setProperty("--lens-w", `${width}px`);
+    motion.vx +=
+      (-spring.stiffness * (motion.x - motion.targetX) - spring.damping * motion.vx) * dt;
+    motion.x += motion.vx * dt;
+
+    motion.vw +=
+      (-spring.stiffness * (motion.width - motion.targetWidth) - spring.damping * motion.vw) * dt;
+    motion.width += motion.vw * dt;
+  }
+
+  // 撞到导航轨道两端时停住，交给弹簧自己收回来。
+  const bounds = navLensBounds(motion.width);
+  if (bounds) {
+    if (motion.x < bounds.min) {
+      motion.x = bounds.min;
+      if (motion.vx < 0) motion.vx = 0;
+    } else if (motion.x > bounds.max) {
+      motion.x = bounds.max;
+      if (motion.vx > 0) motion.vx = 0;
+    }
+  }
+
+  renderNavLensMotion();
+
+  if (navLensMotionSettled()) {
+    if (motion.phase === "settle") {
+      finishNavLensMotion();
+      syncNavLens(true);
+    } else {
+      // 按住不动、或拖到某处停住时停掉循环省电；下一次移动会重新启动。
+      motion.x = motion.targetX;
+      motion.width = motion.targetWidth;
+      motion.vx = 0;
+      motion.vw = 0;
+      renderNavLensMotion();
+      stopNavLensLoop();
+    }
+    return;
+  }
+
+  motion.frame = window.requestAnimationFrame(stepNavLensMotion);
+}
+
+// 按下的瞬间用一段很快的弹簧贴到目标项，避免连续点按时药丸硬切。
+function beginNavLensGesture(link) {
+  if (!navElement || !navLensElement || !link) return;
+
+  const metric = navLinkMetric(link);
+  if (!metric) return;
+
+  if (!navLensMotion.phase) {
+    const visible = navLensElement.classList.contains("is-visible");
+    const visual = visible ? readNavLensVisual() : null;
+    navLensMotion.x = visual ? visual.x : metric.left;
+    navLensMotion.width = visual ? visual.width : metric.width;
+    if (!visible) {
+      // 药丸原本是隐藏的：先把位置放好再淡入，避免第一帧从旧栏目闪过去。
+      navLensElement.style.setProperty("--lens-x", `${metric.left}px`);
+      navLensElement.style.setProperty("--lens-w", `${metric.width}px`);
+      navLensElement.style.setProperty("--lens-stretch", "0");
+    }
+  }
+
+  // 不管上一次手势有没有收完，新的一次按下都从当前位置重新出发。
+  navLensMotion.navRect = navElement.getBoundingClientRect();
+  navLensMotion.vx = 0;
+  navLensMotion.vw = 0;
+  navLensMotion.phase = "press";
+  navLensMotion.lastTime = 0;
+  navLensMotion.clientX = null;
+  navLensMotion.link = link;
+  navLensMotion.targetX = metric.left;
+  navLensMotion.targetWidth = metric.width;
+
+  navLensElement.classList.add("is-visible", "is-tracking");
+  navElement.classList.add("is-tracking");
+  navLinks.forEach((item) => item.classList.toggle("is-lens-target", item === link));
   navLensTarget = null;
+
+  startNavLensLoop();
 }
 
-/*
-  指针在 iPad 上可能以 120Hz 触发，而每次移动都要写样式。
-  合并到下一帧再更新，最多每帧一次，拖动更稳。
-*/
-function queueNavLensTracking(clientX) {
-  navTrackClientX = clientX;
-  if (navTrackFrame) return;
+// 松手后带着一点回弹落到某个菜单项上。
+function settleNavLensTo(link) {
+  const metric = navLinkMetric(link);
+  if (!metric) {
+    finishNavLensMotion();
+    return;
+  }
 
-  navTrackFrame = window.requestAnimationFrame(() => {
-    navTrackFrame = 0;
-    if (!navTracking) return;
-    setNavLensTracking(navTrackClientX);
-  });
+  navLensMotion.phase = "settle";
+  navLensMotion.clientX = null;
+  navLensMotion.link = link;
+  // 保留松手时的惯性，但夹住上限，避免快速甩动时药丸冲过好几个栏目。
+  navLensMotion.vx = clampNumber(navLensMotion.vx, -900, 900);
+  navLensMotion.vw = 0;
+  navLensMotion.targetX = metric.left;
+  navLensMotion.targetWidth = metric.width;
+  navLinks.forEach((item) => item.classList.toggle("is-lens-target", item === link));
+  startNavLensLoop();
 }
 
-function cancelQueuedNavLensTracking() {
-  if (!navTrackFrame) return;
-  window.cancelAnimationFrame(navTrackFrame);
-  navTrackFrame = 0;
+// 手势被系统打断（例如开始纵向滚动页面）时，让药丸弹回当前栏目。
+function cancelNavLensGesture() {
+  if (!navLensMotion.phase) {
+    syncNavLens(true);
+    return;
+  }
+
+  const target = navPinnedLink || navElement?.querySelector("a.is-active") || null;
+  if (target) {
+    settleNavLensTo(target);
+  } else {
+    finishNavLensMotion();
+    syncNavLens(true);
+  }
+}
+
+function finishNavLensMotion() {
+  stopNavLensLoop();
+
+  const motion = navLensMotion;
+  motion.phase = "";
+  motion.clientX = null;
+  motion.lastTime = 0;
+  motion.vx = 0;
+  motion.vw = 0;
+
+  if (navLensElement) {
+    motion.x = motion.targetX;
+    motion.width = motion.targetWidth;
+    navLensElement.style.setProperty("--lens-x", `${motion.targetX}px`);
+    navLensElement.style.setProperty("--lens-w", `${motion.targetWidth}px`);
+    navLensElement.style.setProperty("--lens-stretch", "0");
+    navLensElement.classList.remove("is-tracking");
+  }
+  if (navElement) navElement.classList.remove("is-tracking");
+  navLensTarget = motion.link;
 }
 
 function syncNavLens(force = false) {
-  if (!navElement || !navLensElement || navTracking) return;
+  if (!navElement || !navLensElement) return;
+
+  if (navLensMotion.phase) {
+    if (!force) return;
+    // 尺寸 / 位置变了：先让弹簧停下，再按新的布局重新定位。
+    finishNavLensMotion();
+  }
 
   const target = navHoverLink || navPinnedLink || navElement.querySelector("a.is-active");
   if (!force && target === navLensTarget) return;
@@ -638,6 +875,109 @@ function syncNavLens(force = false) {
   navLensElement.classList.add("is-visible");
 }
 
+function cancelNavScrollAnimation() {
+  if (navScrollFrame) {
+    window.cancelAnimationFrame(navScrollFrame);
+    navScrollFrame = 0;
+  }
+  if (navScrollCleanup) {
+    const cleanup = navScrollCleanup;
+    navScrollCleanup = null;
+    cleanup();
+  }
+}
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+/*
+  手机 / iPad 上从菜单跳到栏目时，原生 smooth 只有一条固定曲线，
+  距离一长就显得急、刹车也硬。这里用一条更长的缓入缓出曲线逐帧滚动，
+  并按“落点上方会不会出现页头”留出不同高度的呼吸位。
+
+  桌面端仍然使用原生平滑滚动，不改变原来的手感。
+*/
+function scrollToSectionSmoothly(section) {
+  cancelNavScrollAnimation();
+
+  const startY = window.scrollY;
+  const sectionTop = startY + section.getBoundingClientRect().top;
+  const headerHeight = siteHeader ? siteHeader.getBoundingClientRect().height : 0;
+  // 往下滚时页头会收起，落点只需要一点点呼吸位；往上滚时页头会重新出现，
+  // 必须把它的高度算进去，否则标题会被玻璃页头盖住。
+  // iPad（>640px）的页头被 CSS 固定在顶部、不会收起，所以始终要留出高度。
+  const willScrollDown = sectionTop > startY + 1;
+  const headerStaysOpen = window.innerWidth >= 641;
+  const headerWillShow = headerStaysOpen || !willScrollDown || sectionTop < 90;
+  const topInset = headerWillShow ? headerHeight + 18 : 20;
+  const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  const targetY = clampNumber(sectionTop - topInset, 0, maxScroll);
+  const distance = targetY - startY;
+
+  if (Math.abs(distance) < 2) return;
+
+  if (prefersReducedMotion()) {
+    const html = document.documentElement;
+    const previousScrollBehavior = html.style.scrollBehavior;
+    html.style.scrollBehavior = "auto";
+    window.scrollTo(0, targetY);
+    html.style.scrollBehavior = previousScrollBehavior;
+    return;
+  }
+
+  // 距离越远滑得越久，但始终控制在 320–980ms，不会让人等得不耐烦。
+  const duration = clampNumber(320, 980, 260 + Math.sqrt(Math.abs(distance)) * 11);
+  const startedAt = performance.now();
+  const html = document.documentElement;
+  const previousScrollBehavior = html.style.scrollBehavior;
+  // 逐帧 scrollTo 时必须关掉 CSS 的 smooth，否则每次调用都会再起一段动画。
+  html.style.scrollBehavior = "auto";
+
+  const onInterrupt = () => cancelNavScrollAnimation();
+  const onKeyDown = () => cancelNavScrollAnimation();
+  const onPointerDown = (event) => {
+    // 触屏由上面的 touchstart 负责；这里只处理鼠标 / 触控笔，
+    // 避免把触屏拖动后浏览器补发的兼容鼠标事件当成新的用户操作。
+    if (event.pointerType === "touch") return;
+    cancelNavScrollAnimation();
+  };
+  const onVisibilityChange = () => {
+    if (document.hidden) cancelNavScrollAnimation();
+  };
+
+  navScrollCleanup = () => {
+    window.removeEventListener("touchstart", onInterrupt, true);
+    window.removeEventListener("pointerdown", onPointerDown, true);
+    window.removeEventListener("wheel", onInterrupt, true);
+    window.removeEventListener("keydown", onKeyDown, true);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    html.style.scrollBehavior = previousScrollBehavior;
+  };
+
+  // 用户一旦自己碰页面，立刻把控制权还给他。
+  window.addEventListener("touchstart", onInterrupt, { passive: true, capture: true });
+  window.addEventListener("pointerdown", onPointerDown, { passive: true, capture: true });
+  window.addEventListener("wheel", onInterrupt, { passive: true, capture: true });
+  window.addEventListener("keydown", onKeyDown, true);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
+  const tick = (now) => {
+    const progress = Math.min(1, (now - startedAt) / duration);
+    window.scrollTo(0, startY + distance * easeInOutCubic(progress));
+
+    if (progress < 1) {
+      navScrollFrame = window.requestAnimationFrame(tick);
+    } else {
+      navScrollFrame = 0;
+      window.scrollTo(0, targetY);
+      cancelNavScrollAnimation();
+    }
+  };
+
+  navScrollFrame = window.requestAnimationFrame(tick);
+}
+
 function navigateNavLink(link) {
   const href = link.getAttribute("href");
   if (!href || !href.startsWith("#")) return;
@@ -647,12 +987,18 @@ function navigateNavLink(link) {
   }
 
   const target = document.querySelector(href);
-  if (target) {
-    target.scrollIntoView({
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-      block: "start",
-    });
+  if (!target) return;
+
+  if (isNavDocked()) {
+    scrollToSectionSmoothly(target);
+    return;
   }
+
+  cancelNavScrollAnimation();
+  target.scrollIntoView({
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+    block: "start",
+  });
 }
 
 function setActiveNavLink(link) {
@@ -744,9 +1090,7 @@ function setupNavLens() {
     // 新的一次按下意味着上一次拖动已经结束，不再拦截新的 click。
     suppressNavClickUntil = 0;
     navLastPointerType = event.pointerType;
-    cancelQueuedNavLensTracking();
 
-    // 新的一次按下直接接管旧的手势，避免上一次 pointerup 丢失后药丸再也拖不动。
     if (event.pointerType === "mouse" || event.button !== 0) return;
 
     const link = event.target.closest("a");
@@ -763,11 +1107,8 @@ function setupNavLens() {
 
     navTracking = false;
     navHoverLink = link;
-    navLinks.forEach((item) => item.classList.toggle("is-lens-target", item === link));
-    setNavLensPosition(link);
-    navElement.classList.remove("is-tracking");
-    navLensElement.classList.remove("is-tracking");
-    navLensElement.classList.add("is-visible");
+    // 按下先快速贴到这一项；如果接着横向拖动，会切换到 drag 阶段。
+    beginNavLensGesture(link);
   });
 
   // 监听 document 而不是 nav，手指滑出导航边缘时药丸也能继续跟手。
@@ -781,18 +1122,29 @@ function setupNavLens() {
       const dx = event.clientX - touchState.startX;
       const dy = event.clientY - touchState.startY;
 
-      // 只把明显的横向拖动当成“在菜单里滑”，纵向仍然是正常滚动页面。
+      // 只把明确的横向拖动当成“在菜单里滑”，纵向仍然是正常滚动页面。
       if (!touchState.moved) {
-        if (Math.abs(dx) < 5 || Math.abs(dx) <= Math.abs(dy)) return;
+        if (Math.abs(dx) < 4 || Math.abs(dx) <= Math.abs(dy)) return;
         touchState.moved = true;
         navTracking = true;
-        navElement.classList.add("is-tracking");
-        navLensElement.classList.add("is-tracking");
-        setNavLensTracking(event.clientX);
+        navLensMotion.phase = "drag";
+        navLensMotion.clientX = event.clientX;
+        // 导航已固定在屏幕上；这里更新一次，避免阅读器开关等布局变化留下旧值。
+        navLensMotion.navRect = navElement.getBoundingClientRect();
+        startNavLensLoop();
         return;
       }
 
-      queueNavLensTracking(event.clientX);
+      // 这里只记录坐标，弹簧和样式统一在下一帧处理，最多每帧写一次。
+      if (!navLensMotion.phase) {
+        // 极少见的情况：拖动中旋转屏幕 / 改变窗口尺寸会把弹簧收掉，
+        // 下一次移动时重新进入 drag 阶段，手势不会因此中断。
+        navLensMotion.phase = "drag";
+        navLensMotion.navRect = navElement.getBoundingClientRect();
+        navLensMotion.link = navHoverLink || touchState.link;
+      }
+      navLensMotion.clientX = event.clientX;
+      startNavLensLoop();
     },
     { passive: true }
   );
@@ -804,31 +1156,34 @@ function setupNavLens() {
 
     const state = touchState;
     touchState = null;
-    cancelQueuedNavLensTracking();
 
     if (navTracking) {
       navTracking = false;
-      navElement.classList.remove("is-tracking");
-      navLensElement.classList.remove("is-tracking");
 
-      if (state.moved && navHoverLink) {
-        // pinNavLens 会清掉触屏的 navHoverLink，先把选中的栏目存下来。
-        const selectedLink = navHoverLink;
+      // 以松手位置为准再算一次最近项，避免最后一帧还没跑到就抬手。
+      const releaseTarget = navLensDragTarget(
+        event.clientX,
+        navElement.getBoundingClientRect()
+      );
+      const selectedLink = releaseTarget?.link || navHoverLink || state.link;
+
+      if (state.moved) {
         // 拖动结束后手动跳到选中的栏目，并吞掉随后浏览器可能补发的那次 click。
         suppressNavClickUntil = performance.now() + 650;
+        // 药丸从当前位置弹到选中项，同时把 active 状态钉住，滚动与落位一起发生。
+        settleNavLensTo(selectedLink);
         pinNavLens(selectedLink);
         navigateNavLink(selectedLink);
+      } else {
+        settleNavLensTo(state.link);
       }
 
-      syncNavLens(true);
       scheduleTouchReset();
       return;
     }
 
-    // 普通点按：交给原生 click 完成跳转。
-    navElement.classList.remove("is-tracking");
-    navLensElement.classList.remove("is-tracking");
-    syncNavLens(true);
+    // 普通点按：click 负责跳转，药丸只用一小段回弹落回被点的项。
+    settleNavLensTo(state.link);
     scheduleTouchReset();
   };
 
@@ -836,22 +1191,35 @@ function setupNavLens() {
     if (!touchState || event.pointerId !== touchState.pointerId) return;
 
     touchState = null;
-    cancelQueuedNavLensTracking();
     navTracking = false;
-    navElement.classList.remove("is-tracking");
-    navLensElement.classList.remove("is-tracking");
     navHoverLink = null;
-    syncNavLens(true);
+    cancelNavLensGesture();
+    scheduleTouchReset();
+  };
+
+  // 切后台、失焦时 pointerup 可能不会到达，主动收尾，避免药丸卡在拖动态。
+  const abortTouch = () => {
+    if (!touchState) return;
+    touchState = null;
+    navTracking = false;
+    navHoverLink = null;
+    cancelNavLensGesture();
   };
 
   document.addEventListener("pointerup", endTouch, { passive: true });
   document.addEventListener("pointercancel", cancelTouch, { passive: true });
+  window.addEventListener("blur", abortTouch);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) abortTouch();
+  });
 
   // 拖动结束后浏览器偶尔还会补发一次 click，短暂拦截，避免重复跳转。
   navElement.addEventListener(
     "click",
     (event) => {
       if (performance.now() >= suppressNavClickUntil) return;
+      // 键盘 / 辅助技术触发的 click detail 为 0，不应该被当成拖动的余波。
+      if (event.detail === 0) return;
       const link = event.target.closest("a");
       if (!link) return;
       event.preventDefault();
@@ -860,11 +1228,17 @@ function setupNavLens() {
     true
   );
 
-  // 普通点击/键盘回车：药丸立刻落在被点的菜单项上，并保持到滚动结束。
+  // 普通点击 / 键盘回车：药丸先钉住选中项，再统一交给 navigateNavLink 滚动。
   navElement.addEventListener("click", (event) => {
     const link = event.target.closest("a");
     if (!link || !navElement.contains(link)) return;
+
+    // 组合键点击保留浏览器原生行为（新标签页打开等）。
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+    event.preventDefault();
     pinNavLens(link);
+    navigateNavLink(link);
   });
 
   // 鼠标离开导航时回到当前栏目；触屏的收尾交给上面的定时器。

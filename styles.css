@@ -526,28 +526,36 @@ body.is-header-hidden .site-header {
 }
 
 /*
-  手指拖动时药丸必须跟手：关掉位移/宽度的过渡，让指针位置直接映射成药丸位置。
-  松手后再恢复上面的过渡，由它滑到最近的栏目。
+  手指拖动时药丸必须跟手：关掉位移/宽度的过渡，由脚本里的弹簧逐帧写入位置。
+  松手后的落位也由同一段弹簧完成，所以这里始终只保留透明度过渡。
 */
 .nav-lens.is-tracking {
   transition: opacity 180ms ease;
+  will-change: transform;
 }
 
 .nav-lens.is-tracking::before {
-  transform: scale(1.16);
+  /*
+    脚本按拖动速度写入 --lens-stretch（约 -0.12 ~ 0.12）。
+    用 scaleX 拉长玻璃面，只走合成层，不会每帧重排宽度 / 重绘阴影。
+    拖动期间只保留阴影过渡：拉伸和放大都要立刻跟手，不能再被 260ms 的
+    transform 过渡拖慢。
+  */
+  transform: scaleX(calc(1 + var(--lens-stretch, 0))) scale(1.16);
   box-shadow: var(--nav-lens-shadow-lift);
+  transition: box-shadow 260ms ease;
+  will-change: transform;
 }
 
 /*
-  iPad 的导航在左下角、又是手指拖动，长距离弹簧会显得拖沓。
-  这里只把 iPad 上的收尾动画换成短距离缓出；桌面端仍保留 520ms 的弹簧手感。
-  拖动中由 .is-tracking 完全关掉位移过渡，优先保证跟手。
+  iPad 的导航在左下角，距离长；但拖动与落位现在都由脚本弹簧接管，
+  这里不再把收尾缩短成一条没有回弹的缓出曲线，保持和桌面端一致的弹性。
 */
 body.nav-dock-ipad .nav-lens:not(.is-tracking) {
   transition:
-    width 300ms var(--ease),
-    transform 300ms var(--ease),
-    opacity 180ms ease;
+    width 520ms var(--ease-spring),
+    transform 520ms var(--ease-spring),
+    opacity 200ms ease;
 }
 
 .primary-nav a {
@@ -558,6 +566,8 @@ body.nav-dock-ipad .nav-lens:not(.is-tracking) {
   color: var(--muted);
   font-size: 13.5px;
   letter-spacing: 0.05em;
+  /* 长按拖动时不要弹出 iOS 的链接预览 / 上下文菜单，避免打断手势。 */
+  -webkit-touch-callout: none;
   transform-origin: center;
   transition:
     color 220ms ease,
@@ -2873,7 +2883,9 @@ body.is-reader-open .reader-scrim {
 
   .content-section {
     padding: 40px 0;
-    scroll-margin-top: 120px;
+    /* 手机 / iPad 上页头约 60px 高，留出 84px 就能让标题不被玻璃页头盖住，
+       也不会像之前的 120px 那样在栏目上方留下过大的空白。 */
+    scroll-margin-top: 84px;
   }
 
   #notes {
@@ -2881,7 +2893,7 @@ body.is-reader-open .reader-scrim {
   }
 
   .bottom-pane {
-    scroll-margin-top: 120px;
+    scroll-margin-top: 84px;
   }
 
   .section-heading {
