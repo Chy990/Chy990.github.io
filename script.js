@@ -24,7 +24,7 @@ const navDock = document.querySelector(".nav-dock");
 const readerSection = document.querySelector("#reader");
 const readerBarElement = document.querySelector(".reader-bar");
 const readerBarDock = document.querySelector(".reader-bar-dock");
-const CONTENT_VERSION = "20261021-57";
+const CONTENT_VERSION = "20261026-75";
 const BASE_TITLE = "Chen 的实验台";
 
 // WeakSet 用来记录哪些元素已经绑定过观察器，避免重复绑定。

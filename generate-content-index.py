@@ -126,7 +126,38 @@ def update_entry(path: Path) -> dict[str, str]:
     }
 
 
-def gallery_entry(path: Path) -> dict[str, str]:
+IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+[\"'][^\"']*[\"'])?\s*\)")
+
+
+def gallery_photos(path: Path) -> list[dict[str, str]]:
+    """
+    Extract the local images referenced by a gallery Markdown file.
+
+    The alt text may carry a layout hint like `市区电车|portrait`; only the
+    readable part is kept. External images and duplicates are ignored.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+
+    photos: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    for match in IMAGE_PATTERN.finditer(text):
+        alt = match.group(1).split("|")[0].strip()
+        src = match.group(2).strip()
+        if not src or src in seen:
+            continue
+        if src.startswith(("http://", "https://", "data:")):
+            continue
+        seen.add(src)
+        photos.append({"src": src, "alt": alt})
+
+    return photos
+
+
+def gallery_entry(path: Path) -> dict:
     """Build one gallery record from a Markdown album file."""
     compact_date_match = re.match(r"^(\d{4})(\d{2})(\d{2}).*\.md$", path.name)
     frontmatter = read_frontmatter(path)
@@ -143,10 +174,12 @@ def gallery_entry(path: Path) -> dict[str, str]:
         "cover": frontmatter.get("cover", ""),
         "title": heading or title_from_slug(path.stem),
         "file": path.name,
+        # 首页首屏会从这里随机挑照片，所以把 Markdown 里出现的图片也一起写进清单。
+        "photos": gallery_photos(path),
     }
 
 
-def collect() -> dict[str, list[dict[str, str]]]:
+def collect() -> dict[str, list[dict]]:
     """Collect all content records from notes, repos, and gallery folders."""
     notes = sorted(
         (note_entry(path) for path in (CONTENT / "notes").glob("*.md")),

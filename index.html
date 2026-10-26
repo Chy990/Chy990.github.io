@@ -37,18 +37,19 @@
       })();
     </script>
 
-    <!-- 首屏照片优先加载，避免进入页面时留白。 -->
-    <link
-      rel="preload"
-      as="image"
-      href="./content/gallery/_thumbs/20260320维洲/mel1.jpg"
-    />
-
     <!--
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261026-74" />
+    <link rel="stylesheet" href="./styles.css?v=20261026-75" />
+
+    <!--
+      首屏右侧的三块内容每次打开都会随机挑选：两张相册照片 + 一篇笔记。
+      清单和挑选脚本放在样式后面，既不挡 CSS 下载，又能在 hero 解析前
+      把选中的缩略图预加载好。
+    -->
+    <script src="./content/content-index.js?v=20261026-75"></script>
+    <script src="./hero-random.js?v=20261026-75"></script>
   </head>
   <body>
     <!-- 键盘用户可以直接跳过导航，进入正文。 -->
@@ -180,44 +181,53 @@
           </div>
 
           <div class="hero-visual" data-reveal aria-label="相册照片选摘">
-            <div class="hero-plate hero-plate--main">
+            <div class="hero-plate hero-plate--main" data-hero-plate="main">
               <figure class="hero-photo">
                 <img
                   src="./content/gallery/_thumbs/20260320维洲/mel1.jpg"
                   data-fallback-src="./content/gallery/20260320维洲/mel1.jpg"
                   alt="维洲街头的电车、行人与树影"
-                  width="1067"
-                  height="1600"
-                  fetchpriority="high"
                 />
-                <figcaption><span>维洲 · 墨尔本</span><span>2026.03</span></figcaption>
+                <figcaption>
+                  <span data-hero-place>维洲 · 墨尔本</span>
+                  <span data-hero-date>2026.03</span>
+                </figcaption>
               </figure>
             </div>
 
-            <div class="hero-plate hero-plate--sub">
+            <div class="hero-plate hero-plate--sub" data-hero-plate="sub">
               <figure class="hero-photo">
                 <img
                   src="./content/gallery/_thumbs/20260621吉林/flight-home.jpg"
                   data-fallback-src="./content/gallery/20260621吉林/flight-home.jpg"
                   alt="回吉林的航班上，机翼与云层"
-                  width="1600"
-                  height="1200"
                 />
-                <figcaption><span>吉林</span><span>2026.06</span></figcaption>
+                <figcaption>
+                  <span data-hero-place>吉林</span>
+                  <span data-hero-date>2026.06</span>
+                </figcaption>
               </figure>
             </div>
 
             <aside class="journal-card">
               <div class="journal-head">
-                <span class="card-label">今日灵感</span>
-                <span class="card-date">2026.06</span>
+                <span class="card-label" data-hero-note-label>今日灵感</span>
+                <span class="card-date" data-hero-note-date>2026.06</span>
               </div>
-              <strong>给每个普通瞬间，留一点被重新发现的余地。</strong>
-              <p>随手记 / Note to self</p>
+              <strong data-hero-note-title>给每个普通瞬间，留一点被重新发现的余地。</strong>
+              <p data-hero-note-foot>随手记 / Note to self</p>
             </aside>
 
           </div>
         </section>
+
+        <!--
+          首屏结构已经解析完，立刻把随机选好的照片和笔记填进去。
+          这段必须紧跟在 hero 后面，避免先画出静态兜底内容再闪一下。
+        -->
+        <script>
+          if (typeof window.applyHeroRandom === "function") window.applyHeroRandom();
+        </script>
 
         <!-- 笔记：清单式索引，点击整行进入阅读页。 -->
         <section id="notes" class="content-section split-section">
@@ -351,9 +361,7 @@
       </article>
     </section>
 
-    <!-- 自动生成的内容清单；平时只增删 content 里的文件即可。 -->
-    <script src="./content/content-index.js?v=20261021-57"></script>
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261026-74"></script>
+    <script src="./script.js?v=20261026-75"></script>
   </body>
 </html>
