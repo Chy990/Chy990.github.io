@@ -784,7 +784,8 @@ function beginNavLensGesture(link) {
   navLensMotion.targetX = metric.left;
   navLensMotion.targetWidth = metric.width;
 
-  navLensElement.classList.add("is-visible", "is-tracking");
+  navLensElement.classList.remove("is-dragging");
+  navLensElement.classList.add("is-visible", "is-tracking", "is-pressed");
   navElement.classList.add("is-tracking");
   navLinks.forEach((item) => item.classList.toggle("is-lens-target", item === link));
   navLensTarget = null;
@@ -799,6 +800,14 @@ function settleNavLensTo(link) {
     finishNavLensMotion();
     return;
   }
+
+  /*
+    松手就立刻收回“拖动放大”状态：玻璃面按 150ms 的过渡迅速恢复原尺寸，
+    药丸位置仍然由下面的弹簧继续滑到目标项。两者解耦，不会有“先等它滑完
+    再慢慢变小”的迟滞感。
+  */
+  navLensElement.classList.remove("is-dragging", "is-pressed");
+  navLensElement.style.setProperty("--lens-stretch", "0");
 
   navLensMotion.phase = "settle";
   navLensMotion.clientX = null;
@@ -844,7 +853,7 @@ function finishNavLensMotion() {
     navLensElement.style.setProperty("--lens-x", `${motion.targetX}px`);
     navLensElement.style.setProperty("--lens-w", `${motion.targetWidth}px`);
     navLensElement.style.setProperty("--lens-stretch", "0");
-    navLensElement.classList.remove("is-tracking");
+    navLensElement.classList.remove("is-tracking", "is-dragging", "is-pressed");
   }
   if (navElement) navElement.classList.remove("is-tracking");
   navLensTarget = motion.link;
@@ -1131,6 +1140,9 @@ function setupNavLens() {
         navLensMotion.clientX = event.clientX;
         // 导航已固定在屏幕上；这里更新一次，避免阅读器开关等布局变化留下旧值。
         navLensMotion.navRect = navElement.getBoundingClientRect();
+        // 真正开始横向拖动：药丸明显放大；松手时由 settleNavLensTo 立刻收回。
+        navLensElement.classList.remove("is-pressed");
+        navLensElement.classList.add("is-dragging");
         startNavLensLoop();
         return;
       }
@@ -1142,6 +1154,8 @@ function setupNavLens() {
         navLensMotion.phase = "drag";
         navLensMotion.navRect = navElement.getBoundingClientRect();
         navLensMotion.link = navHoverLink || touchState.link;
+        navLensElement.classList.remove("is-pressed");
+        navLensElement.classList.add("is-dragging");
       }
       navLensMotion.clientX = event.clientX;
       startNavLensLoop();

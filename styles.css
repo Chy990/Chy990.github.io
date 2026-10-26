@@ -515,9 +515,13 @@ body.is-header-hidden .site-header {
   box-shadow: var(--nav-lens-shadow);
   transform: scale(1);
   transform-origin: center;
+  /*
+    松手回到正常大小只等 150ms：尺寸变化和位置弹簧解耦，
+    药丸还在滑向目标栏目时，玻璃面已经先收回来了。
+  */
   transition:
-    transform 260ms var(--ease-spring),
-    box-shadow 260ms ease;
+    transform 150ms var(--ease),
+    box-shadow 180ms ease;
 }
 
 .nav-lens.is-visible {
@@ -534,16 +538,23 @@ body.is-header-hidden .site-header {
   will-change: transform;
 }
 
-.nav-lens.is-tracking::before {
-  /*
-    脚本按拖动速度写入 --lens-stretch（约 -0.12 ~ 0.12）。
-    用 scaleX 拉长玻璃面，只走合成层，不会每帧重排宽度 / 重绘阴影。
-    拖动期间只保留阴影过渡：拉伸和放大都要立刻跟手，不能再被 260ms 的
-    transform 过渡拖慢。
-  */
-  transform: scaleX(calc(1 + var(--lens-stretch, 0))) scale(1.16);
+/* 按下时先轻轻鼓起一点，表示手指已经抓到药丸。 */
+.nav-lens.is-pressed::before {
+  transform: scale(1.08);
   box-shadow: var(--nav-lens-shadow-lift);
-  transition: box-shadow 260ms ease;
+}
+
+/*
+  真正进入拖动后才明显放大：比松手时的正常尺寸大约 24%。
+  脚本按拖动速度写入 --lens-stretch（约 -0.12 ~ 0.12），用 scaleX 拉长玻璃面，
+  只走合成层，不会每帧重排宽度 / 重绘阴影。
+  拖动期间只保留阴影过渡：拉伸和放大要立刻跟手；松手时移除这个类，
+  玻璃面会按上面的 150ms 过渡迅速回到正常大小。
+*/
+.nav-lens.is-dragging::before {
+  transform: scaleX(calc(1 + var(--lens-stretch, 0))) scale(1.24);
+  box-shadow: var(--nav-lens-shadow-lift);
+  transition: box-shadow 180ms ease;
   will-change: transform;
 }
 
