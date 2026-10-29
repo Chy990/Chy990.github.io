@@ -13,6 +13,7 @@ __pycache__/
 # 编辑器和临时文件
 .vscode/
 .idea/
+.claude/
 *.log
 *.tmp
 *.bak

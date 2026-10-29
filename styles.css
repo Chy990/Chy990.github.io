@@ -2291,8 +2291,8 @@ body.is-reader-open .reader-scrim {
   display: none;
 }
 
+/* 正文和上方 .reader-bar 同宽，左右边缘对齐。 */
 .reader-body {
-  max-width: 44em;
   color: var(--ink-2);
   font-family: var(--font-sans);
   font-size: clamp(16.5px, 1.4vw, 19px);
