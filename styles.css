@@ -428,6 +428,21 @@ body.is-header-hidden .site-header {
   transform: translateY(calc(-100% - 32px));
 }
 
+/*
+  手机 / iPad 点菜单跳转的那一小段滚动里，页头临时换成实色纸面并关掉毛玻璃：
+  内容在页头下面高速划过时，每帧重算整条模糊是 iPad 上掉帧的主要来源。
+  切进来时背景不做过渡，避免出现一瞬间“没模糊、又半透明”的杂乱画面；
+  滚动结束移除这个类后，按页头原有的 300ms 过渡淡回玻璃。
+*/
+body.is-nav-scrolling .site-header {
+  background: var(--reader-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition:
+    transform 380ms var(--ease-liquid),
+    opacity 240ms ease;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;

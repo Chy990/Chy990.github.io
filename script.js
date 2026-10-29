@@ -49,7 +49,6 @@ let navTracking = false;
 let navPinnedLink = null;
 let navPinTimer = null;
 let navLastPointerType = "";
-let navScrollFrame = 0;
 let navScrollCleanup = null;
 let imageLightboxSession = null;
 let readerBarMotion = null;
@@ -917,10 +916,6 @@ function syncNavLens(force = false) {
 }
 
 function cancelNavScrollAnimation() {
-  if (navScrollFrame) {
-    window.cancelAnimationFrame(navScrollFrame);
-    navScrollFrame = 0;
-  }
   if (navScrollCleanup) {
     const cleanup = navScrollCleanup;
     navScrollCleanup = null;
@@ -928,16 +923,17 @@ function cancelNavScrollAnimation() {
   }
 }
 
-function easeInOutCubic(t) {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
-
 /*
-  手机 / iPad 上从菜单跳到栏目时，原生 smooth 只有一条固定曲线，
-  距离一长就显得急、刹车也硬。这里用一条更长的缓入缓出曲线逐帧滚动，
-  并按“落点上方会不会出现页头”留出不同高度的呼吸位。
+  手机 / iPad 上从菜单跳到栏目：交给浏览器原生的平滑滚动。
+  原生滚动跑在合成线程上，iPad 上能跟着 ProMotion 走 120Hz，主线程忙也不掉帧；
+  以前逐帧 window.scrollTo 的写法只能靠主线程推，Safari 里通常还被限制在 60fps，
+  页面滑过去时会明显卡顿。
+  落点仍然按“落点上方会不会出现页头”留出不同高度的呼吸位。
 
-  桌面端仍然使用原生平滑滚动，不改变原来的手感。
+  滚动期间给 body 加 is-nav-scrolling：页头临时换成实色纸面、关掉毛玻璃，
+  省掉每帧重算整条模糊的开销；滚动停下或用户自己碰页面时再恢复。
+
+  桌面端仍然使用 scrollIntoView，不改变原来的手感。
 */
 function scrollToSectionSmoothly(section) {
   cancelNavScrollAnimation();
@@ -967,56 +963,46 @@ function scrollToSectionSmoothly(section) {
     return;
   }
 
-  // 距离越远滑得越久，但始终控制在 320–980ms，不会让人等得不耐烦。
-  const duration = clampNumber(320, 980, 260 + Math.sqrt(Math.abs(distance)) * 11);
-  const startedAt = performance.now();
-  const html = document.documentElement;
-  const previousScrollBehavior = html.style.scrollBehavior;
-  // 逐帧 scrollTo 时必须关掉 CSS 的 smooth，否则每次调用都会再起一段动画。
-  html.style.scrollBehavior = "auto";
+  const body = document.body;
+  let idleTimer = 0;
+  let safetyTimer = 0;
 
-  const onInterrupt = () => cancelNavScrollAnimation();
-  const onKeyDown = () => cancelNavScrollAnimation();
-  const onPointerDown = (event) => {
-    // 触屏由上面的 touchstart 负责；这里只处理鼠标 / 触控笔，
-    // 避免把触屏拖动后浏览器补发的兼容鼠标事件当成新的用户操作。
-    if (event.pointerType === "touch") return;
-    cancelNavScrollAnimation();
+  const finish = () => cancelNavScrollAnimation();
+  // 原生平滑滚动没有完成回调：支持 scrollend 的浏览器以它为准，
+  // 不支持的就看滚动事件停了多久。
+  const onScroll = () => {
+    window.clearTimeout(idleTimer);
+    idleTimer = window.setTimeout(finish, 160);
   };
   const onVisibilityChange = () => {
-    if (document.hidden) cancelNavScrollAnimation();
+    if (document.hidden) finish();
   };
 
   navScrollCleanup = () => {
-    window.removeEventListener("touchstart", onInterrupt, true);
-    window.removeEventListener("pointerdown", onPointerDown, true);
-    window.removeEventListener("wheel", onInterrupt, true);
-    window.removeEventListener("keydown", onKeyDown, true);
+    window.clearTimeout(idleTimer);
+    window.clearTimeout(safetyTimer);
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("scrollend", finish);
+    window.removeEventListener("touchstart", finish, true);
+    window.removeEventListener("wheel", finish, true);
+    window.removeEventListener("keydown", finish, true);
     document.removeEventListener("visibilitychange", onVisibilityChange);
-    html.style.scrollBehavior = previousScrollBehavior;
+    body.classList.remove("is-nav-scrolling");
   };
 
-  // 用户一旦自己碰页面，立刻把控制权还给他。
-  window.addEventListener("touchstart", onInterrupt, { passive: true, capture: true });
-  window.addEventListener("pointerdown", onPointerDown, { passive: true, capture: true });
-  window.addEventListener("wheel", onInterrupt, { passive: true, capture: true });
-  window.addEventListener("keydown", onKeyDown, true);
+  body.classList.add("is-nav-scrolling");
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("scrollend", finish);
+  // 用户一旦自己碰页面，原生滚动会自己停下把控制权还给他，这里只需要恢复页头。
+  window.addEventListener("touchstart", finish, { passive: true, capture: true });
+  window.addEventListener("wheel", finish, { passive: true, capture: true });
+  window.addEventListener("keydown", finish, true);
   document.addEventListener("visibilitychange", onVisibilityChange);
+  // 滚动开始前给一点余量；再加一道兜底，页头无论如何都不会一直停在实色状态。
+  idleTimer = window.setTimeout(finish, 400);
+  safetyTimer = window.setTimeout(finish, 2500);
 
-  const tick = (now) => {
-    const progress = Math.min(1, (now - startedAt) / duration);
-    window.scrollTo(0, startY + distance * easeInOutCubic(progress));
-
-    if (progress < 1) {
-      navScrollFrame = window.requestAnimationFrame(tick);
-    } else {
-      navScrollFrame = 0;
-      window.scrollTo(0, targetY);
-      cancelNavScrollAnimation();
-    }
-  };
-
-  navScrollFrame = window.requestAnimationFrame(tick);
+  window.scrollTo({ top: targetY, behavior: "smooth" });
 }
 
 function navigateNavLink(link) {
