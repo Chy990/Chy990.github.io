@@ -516,11 +516,11 @@ body.is-header-hidden .site-header {
   transform: scale(1);
   transform-origin: center;
   /*
-    松手回到正常大小只等 150ms：尺寸变化和位置弹簧解耦，
+    松手回到正常大小只要约 300ms，并带一点果冻式回弹：尺寸变化和位置弹簧解耦，
     药丸还在滑向目标栏目时，玻璃面已经先收回来了。
   */
   transition:
-    transform 150ms var(--ease),
+    transform 300ms var(--ease-spring),
     box-shadow 180ms ease;
 }
 
@@ -538,6 +538,14 @@ body.is-header-hidden .site-header {
   will-change: transform;
 }
 
+/*
+  速度拉伸放在外层：外层没有过渡，每帧跟着脚本走；
+  内层玻璃面的放大 / 收回因此可以保留自己的弹性过渡，互不干扰。
+*/
+.nav-lens.is-visible.is-tracking {
+  transform: translateX(var(--lens-x, 0)) scaleX(calc(1 + var(--lens-stretch, 0)));
+}
+
 /* 按下时先轻轻鼓起一点，表示手指已经抓到药丸。 */
 .nav-lens.is-pressed::before {
   transform: scale(1.08);
@@ -546,15 +554,15 @@ body.is-header-hidden .site-header {
 
 /*
   真正进入拖动后才明显放大：比松手时的正常尺寸大约 24%。
-  脚本按拖动速度写入 --lens-stretch（约 -0.12 ~ 0.12），用 scaleX 拉长玻璃面，
-  只走合成层，不会每帧重排宽度 / 重绘阴影。
-  拖动期间只保留阴影过渡：拉伸和放大要立刻跟手；松手时移除这个类，
-  玻璃面会按上面的 150ms 过渡迅速回到正常大小。
+  从按下的 1.08 弹性地鼓到 1.24，而不是一帧跳过去；速度拉伸在外层单独处理。
+  松手时移除这个类，玻璃面会按上面的过渡带着回弹收回正常大小。
 */
 .nav-lens.is-dragging::before {
-  transform: scaleX(calc(1 + var(--lens-stretch, 0))) scale(1.24);
+  transform: scale(1.24);
   box-shadow: var(--nav-lens-shadow-lift);
-  transition: box-shadow 180ms ease;
+  transition:
+    transform 320ms var(--ease-spring),
+    box-shadow 180ms ease;
   will-change: transform;
 }
 
@@ -590,11 +598,11 @@ body.nav-dock-ipad .nav-lens:not(.is-tracking) {
   transform: scale(1.12);
 }
 
-/* 拖动时文字缩放也要立刻跟手，不能比药丸慢半拍。 */
+/* 拖动时文字缩放要跟得上药丸，但也带一点回弹，换项时像被放大镜“啵”地放大。 */
 .primary-nav.is-tracking a {
   transition:
     color 160ms ease,
-    transform 160ms var(--ease);
+    transform 240ms var(--ease-spring);
 }
 
 .primary-nav a::after {

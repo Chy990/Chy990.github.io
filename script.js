@@ -564,14 +564,21 @@ function setNavLensPosition(link) {
 
   三种阶段用不同刚度：
   - press：刚按下，快速贴到按到的菜单项；
-  - drag：跟手拖动，阻尼略低，药丸会被手指“带”着走；
+  - drag：跟手拖动，欠阻尼，药丸会被手指“带”着走，换项时有一点甩动；
   - settle：松手后落位，阻尼更低，收尾带一点回弹。
 */
 const NAV_LENS_SPRINGS = {
   press: { stiffness: 720, damping: 54 },
-  drag: { stiffness: 520, damping: 38 },
+  drag: { stiffness: 430, damping: 30 },
   settle: { stiffness: 330, damping: 19 },
 };
+
+// 拖动时药丸被最近的菜单项轻轻吸住：0 = 完全跟手，1 = 只在菜单项之间跳。
+const NAV_LENS_MAGNET = 0.26;
+// 拖出导航两端时的橡皮筋：越拉越费劲，最多只能多出这么几像素。
+const NAV_LENS_RUBBER = 16;
+// 落位回弹允许冲出两端的距离，避免首尾两项的回弹被硬生生截掉。
+const NAV_LENS_OVERSHOOT = 10;
 
 const navLensMotion = {
   frame: 0,
@@ -580,6 +587,7 @@ const navLensMotion = {
   width: 0,
   vx: 0,
   vw: 0,
+  stretch: 0,
   targetX: 0,
   targetWidth: 0,
   clientX: null,
@@ -590,6 +598,12 @@ const navLensMotion = {
 
 function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+// iOS 式橡皮筋：超出量越大阻力越大，结果无限接近 limit 但不会超过。
+function rubberBand(overflow, limit) {
+  const distance = Math.abs(overflow);
+  return Math.sign(overflow) * (1 - 1 / ((distance * 0.55) / limit + 1)) * limit;
 }
 
 // 药丸允许出现的横向范围（相对导航轨道）。
@@ -617,7 +631,9 @@ function readNavLensVisual() {
 }
 
 /*
-  把手指的横坐标映射成药丸目标：中心跟手，但限制在导航轨道内；
+  把手指的横坐标映射成药丸目标：中心跟手，同时被最近的菜单项轻轻吸过去，
+  跨过两项中点时目标会“跳”一下，弹簧把这一跳变成桌面端那种带回弹的换项；
+  拖出轨道两端时不硬停，而是橡皮筋式地越拉越紧。
   宽度取最近菜单项的宽度，文字缩放也落到最近项上。
 
   导航容器位置在按下时缓存一次，指针移动过程中不再读布局。
@@ -641,7 +657,14 @@ function navLensDragTarget(clientX, navRect) {
 
   const width = nearestMetric.width;
   const bounds = navLensBounds(width);
-  const left = clampNumber(localX - width / 2, bounds.min, bounds.max);
+  const fingerLeft = localX - width / 2;
+  let left = fingerLeft + (nearestMetric.left - fingerLeft) * NAV_LENS_MAGNET;
+
+  if (left < bounds.min) {
+    left = bounds.min + rubberBand(left - bounds.min, NAV_LENS_RUBBER);
+  } else if (left > bounds.max) {
+    left = bounds.max + rubberBand(left - bounds.max, NAV_LENS_RUBBER);
+  }
 
   return { left, width, link: nearestMetric.link };
 }
@@ -650,11 +673,10 @@ function renderNavLensMotion() {
   if (!navLensElement) return;
   const motion = navLensMotion;
   // 速度越快，药丸沿运动方向略微拉长，形成一点点“液体”拉伸。
-  // 拉伸交给内层的 scaleX 做，避免每帧改变 width 触发重排 / 重绘阴影。
-  const stretch = clampNumber(motion.vx * 0.00018, -0.12, 0.12);
+  // 拉伸用 scaleX 做，避免每帧改变 width 触发重排 / 重绘阴影。
   navLensElement.style.setProperty("--lens-x", `${motion.x}px`);
   navLensElement.style.setProperty("--lens-w", `${motion.width}px`);
-  navLensElement.style.setProperty("--lens-stretch", stretch.toFixed(4));
+  navLensElement.style.setProperty("--lens-stretch", motion.stretch.toFixed(4));
 }
 
 function stopNavLensLoop() {
@@ -720,17 +742,25 @@ function stepNavLensMotion(now) {
     motion.width += motion.vw * dt;
   }
 
-  // 撞到导航轨道两端时停住，交给弹簧自己收回来。
+  // 两端留一点余量给回弹和橡皮筋，再往外才停住，交给弹簧自己收回来。
   const bounds = navLensBounds(motion.width);
   if (bounds) {
-    if (motion.x < bounds.min) {
-      motion.x = bounds.min;
+    const min = bounds.min - NAV_LENS_OVERSHOOT;
+    const max = bounds.max + NAV_LENS_OVERSHOOT;
+    if (motion.x < min) {
+      motion.x = min;
       if (motion.vx < 0) motion.vx = 0;
-    } else if (motion.x > bounds.max) {
-      motion.x = bounds.max;
+    } else if (motion.x > max) {
+      motion.x = max;
       if (motion.vx > 0) motion.vx = 0;
     }
   }
+
+  // 拉伸跟着速度走，但做一次平滑：触屏事件频率比屏幕刷新低时，
+  // 速度会一帧大一帧小，直接映射会让玻璃面细碎地抖。
+  // 取速度大小而不是带符号的速度：往左往右都应该拉长，而不是往左时被压扁。
+  const stretchTarget = Math.min(Math.abs(motion.vx) * 0.00018, 0.12);
+  motion.stretch += (stretchTarget - motion.stretch) * Math.min(1, dt * 22);
 
   renderNavLensMotion();
 
@@ -744,6 +774,7 @@ function stepNavLensMotion(now) {
       motion.width = motion.targetWidth;
       motion.vx = 0;
       motion.vw = 0;
+      motion.stretch = 0;
       renderNavLensMotion();
       stopNavLensLoop();
     }
@@ -846,6 +877,7 @@ function finishNavLensMotion() {
   motion.lastTime = 0;
   motion.vx = 0;
   motion.vw = 0;
+  motion.stretch = 0;
 
   if (navLensElement) {
     motion.x = motion.targetX;
