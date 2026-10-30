@@ -1610,43 +1610,96 @@ async function renderNotes() {
   渲染相册：
   读取 Markdown 相册记录，卡片展示封面、日期、地点和文字摘要。
 */
+let activeGalleryYear = "all";
+
+function filterGallery() {
+  const cards = document.querySelectorAll(".gallery-grid .gallery-item");
+  let count = 0;
+  cards.forEach((card) => {
+    const visible = activeGalleryYear === "all" || card.dataset.year === activeGalleryYear;
+    card.hidden = !visible;
+    if (visible) count += 1;
+  });
+  document.querySelectorAll("[data-gallery-year]").forEach((button) => {
+    const active = button.dataset.galleryYear === activeGalleryYear;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelector(".gallery-result").textContent = count ? `显示 ${count} 本相册` : "这个年份暂时没有相册。";
+}
+
 async function renderGallery() {
   const container = document.querySelector(".gallery-grid");
-  const entries = getContentIndex().gallery;
+  const entries = sortByNewestDate(getContentIndex().gallery);
   galleryData = entries;
-  const cards = await Promise.all(
-    entries.map(async (entry) => {
-      const markdown = stripFrontmatter(await readTextSafe(`./content/gallery/${entry.file}`));
-      const photoCount = (markdown.match(/^!\[/gm) || []).length;
-      const cover = entry.cover || "";
-      const coverSrc = cover ? `./content/gallery/${cover}` : "";
-      const coverPreviewSrc = coverSrc ? galleryThumbnailSrc(coverSrc) : "";
-      return `
-        <a class="content-link gallery-item" href="${detailHref("gallery", entry.file)}" data-reveal>
-          <figure>
-            ${
-              cover
-                ? `<img src="${escapeHtml(coverPreviewSrc)}" data-fallback-src="${escapeHtml(coverSrc)}" alt="${escapeHtml(entry.title)}" loading="lazy" decoding="async" />`
-                : ""
-            }
-            <figcaption>
-              <div class="gallery-meta">
-                <span>${escapeHtml(entry.date)}</span>
-                <span>${escapeHtml(entry.place || "未标注地点")}</span>
-                ${photoCount ? `<span>${photoCount} 张</span>` : ""}
-              </div>
-              <strong>${escapeHtml(entry.title)}</strong>
-              <small>${markdownToPreview(stripFirstHeading(markdown), 2)}</small>
-              <span class="gallery-cta">查看相册 <span aria-hidden="true">↗</span></span>
-            </figcaption>
-          </figure>
-        </a>
-      `;
-    })
-  );
+  const years = [...new Set(entries.map((entry) => (entry.date || "").slice(0, 4)).filter(Boolean))];
+  document.querySelector(".gallery-years").innerHTML = [
+    `<button type="button" data-gallery-year="all">全部 <span>${entries.length}</span></button>`,
+    ...years.map((year) => `<button type="button" data-gallery-year="${escapeHtml(year)}">${escapeHtml(year)} <span>${entries.filter((entry) => (entry.date || "").startsWith(year)).length}</span></button>`),
+  ].join("");
+  const cards = await Promise.all(entries.map(async (entry) => {
+    const markdown = stripFrontmatter(await readTextSafe(`./content/gallery/${entry.file}`));
+    const photoCount = (markdown.match(/^!\[/gm) || []).length;
+    const coverSrc = entry.cover ? `./content/gallery/${entry.cover}` : "";
+    return `
+      <a class="content-link gallery-item" href="${detailHref("gallery", entry.file)}" data-year="${escapeHtml((entry.date || "").slice(0, 4))}" data-reveal>
+        <figure>
+          ${coverSrc ? `<img src="${escapeHtml(galleryThumbnailSrc(coverSrc))}" data-fallback-src="${escapeHtml(coverSrc)}" alt="${escapeHtml(entry.title)}" loading="lazy" decoding="async" />` : ""}
+          <figcaption>
+            <div class="gallery-meta"><span>${escapeHtml(entry.date || "")}</span>${photoCount ? `<span>${photoCount} 张</span>` : ""}</div>
+            <strong>${escapeHtml(entry.title)}</strong>
+            <small>${markdownToPreview(stripFirstHeading(markdown), 2)}</small>
+            <span class="gallery-cta">查看相册 <span aria-hidden="true">↗</span></span>
+          </figcaption>
+        </figure>
+      </a>`;
+  }));
   container.innerHTML = cards.join("");
   prepareReveal(container);
+  filterGallery();
 }
+
+// 全站搜索使用与各栏目相同的内容清单和 Markdown，新增内容无需另维护索引。
+let siteSearchEntries = null;
+
+async function buildSiteSearch() {
+  const index = getContentIndex();
+  const groups = [
+    { entries: index.notes, kind: "note", folder: "notes", label: "笔记" },
+    { entries: index.repos, kind: "repo", folder: "repos", label: "仓库" },
+    { entries: index.gallery, kind: "gallery", folder: "gallery", label: "相册" },
+  ];
+  siteSearchEntries = await Promise.all(groups.flatMap(({ entries, kind, folder, label }) => entries.map(async (entry) => {
+    const markdown = stripFrontmatter(await readTextSafe(`./content/${folder}/${entry.file}`));
+    const body = markdown.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/[#*_`>~|]/g, " ").replace(/\s+/g, " ").trim();
+    const meta = [entry.date, entry.type, entry.place, entry.status].filter(Boolean).join(" · ");
+    return { kind, label, title: entry.title || "未命名", file: entry.file, meta, body,
+      searchable: `${entry.title || ""} ${meta} ${body}`.toLowerCase() };
+  })));
+  renderSiteSearch();
+}
+
+function renderSiteSearch() {
+  const query = document.querySelector("[data-site-search]").value.trim().toLowerCase();
+  const output = document.querySelector(".site-search-output");
+  const status = document.querySelector(".site-search-status");
+  const results = document.querySelector(".site-search-results");
+  output.hidden = !query;
+  if (!query) { results.innerHTML = ""; return; }
+  if (!siteSearchEntries) { status.textContent = "正在准备搜索…"; results.innerHTML = ""; return; }
+  const terms = query.split(/\s+/);
+  const matches = siteSearchEntries.filter((entry) => terms.every((term) => entry.searchable.includes(term)));
+  status.textContent = matches.length ? `找到 ${matches.length} 条结果` : "没有找到相关内容，试试其他关键词。";
+  results.innerHTML = matches.map((entry) => {
+    const position = entry.body.toLowerCase().indexOf(terms[0]);
+    const snippet = position >= 0 ? `${position > 25 ? "…" : ""}${entry.body.slice(Math.max(0, position - 25), position + 65)}${position + 65 < entry.body.length ? "…" : ""}` : entry.body.slice(0, 90);
+    return `<a class="content-link site-search-result" href="${detailHref(entry.kind, entry.file)}"><span class="site-search-type">${entry.label}</span><span class="site-search-result-copy"><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(entry.meta)}</small>${snippet ? `<span>${escapeHtml(snippet)}</span>` : ""}</span><span class="site-search-arrow" aria-hidden="true">↗</span></a>`;
+  }).join("");
+}
+
+document.querySelector("[data-site-search]").addEventListener("input", renderSiteSearch);
 
 /*
   渲染最近更新：
@@ -2210,7 +2263,7 @@ function createReaderMorphGhost(link, rect) {
   const isGallery = link.classList.contains("gallery-item");
 
   ghost.className = "reader-morph-ghost";
-  if (isGallery && link.matches(".gallery-item:nth-child(3n)")) ghost.classList.add("is-wide");
+
   ghost.setAttribute("aria-hidden", "true");
   Object.assign(ghost.style, {
     left: `${rect.left}px`,
@@ -2618,6 +2671,10 @@ async function renderContent() {
     renderSection("最近更新", renderUpdates, ".update-grid"),
   ]);
   updateProfileStats();
+  buildSiteSearch().catch((error) => {
+    console.error("搜索索引读取失败", error);
+    document.querySelector(".site-search-status").textContent = "搜索暂时不可用，请刷新页面重试。";
+  });
   await handleRoute();
 }
 
@@ -2656,6 +2713,13 @@ document.addEventListener("click", (event) => {
   if (event.target.closest(".image-lightbox")) {
     event.preventDefault();
     closeImageLightbox();
+    return;
+  }
+
+  const yearButton = event.target.closest("[data-gallery-year]");
+  if (yearButton) {
+    activeGalleryYear = yearButton.dataset.galleryYear;
+    filterGallery();
     return;
   }
 

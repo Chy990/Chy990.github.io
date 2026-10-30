@@ -164,15 +164,6 @@
               这里收集阅读笔记、小项目仓库、旅行相册和一点点关于自己的长话短说。
             </p>
 
-            <div class="hero-actions">
-              <a class="button primary" href="#notes">
-                <span>开始阅读</span>
-                <span class="button-arrow" aria-hidden="true">↓</span>
-              </a>
-              <a class="button ghost" href="#repos">仓库</a>
-              <a class="button ghost" href="#gallery">相册</a>
-            </div>
-
             <p class="hero-foot">
               <span>v2.0</span>
               <span>2024 — 2026</span>
@@ -229,6 +220,17 @@
           if (typeof window.applyHeroRandom === "function") window.applyHeroRandom();
         </script>
 
+        <section class="site-search" aria-label="搜索网站内容">
+          <div class="site-search-intro"><span class="site-search-kicker">EXPLORE THE ARCHIVE</span><h2>找点什么？</h2><p>搜索笔记、仓库和相册</p></div>
+          <div class="site-search-main">
+            <label class="site-search-field"><span class="sr-only">搜索笔记、仓库和相册</span><span class="site-search-icon" aria-hidden="true">⌕</span><input type="search" placeholder="输入关键词，发现更多…" data-site-search autocomplete="off" /><span class="site-search-enter" aria-hidden="true">SEARCH</span></label>
+            <div class="site-search-output" hidden>
+              <p class="site-search-status" role="status" aria-live="polite"></p>
+              <div class="site-search-results"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- 笔记：清单式索引，点击整行进入阅读页。 -->
         <section id="notes" class="content-section split-section">
           <div class="section-heading" data-reveal>
@@ -260,7 +262,7 @@
           </div>
         </section>
 
-        <!-- 相册：三本相册按图版大小错落排列。 -->
+        <!-- 相册：按年份和关键词浏览。 -->
         <section id="gallery" class="content-section">
           <div class="section-heading" data-reveal>
             <span class="section-index" aria-hidden="true">03</span>
@@ -270,6 +272,10 @@
               <span class="section-count" data-section-count="gallery">—</span>
             </p>
           </div>
+          <div class="gallery-toolbar" aria-label="查找相册">
+            <div class="gallery-years" aria-label="按年份筛选相册"></div>
+          </div>
+          <p class="gallery-result" aria-live="polite"></p>
           <div class="gallery-grid">
             <div class="loading-row" data-reveal>正在读取相册…</div>
           </div>
