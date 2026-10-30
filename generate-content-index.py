@@ -16,6 +16,7 @@ Example:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -25,6 +26,7 @@ ROOT = Path(__file__).resolve().parent
 CONTENT = ROOT / "content"
 JS_OUTPUT = CONTENT / "content-index.js"
 JSON_OUTPUT = CONTENT / "content-index.json"
+HTML_PATH = ROOT / "index.html"
 
 
 def read_first_heading(path: Path) -> str | None:
@@ -217,6 +219,17 @@ def main() -> None:
         f"window.BLOG_CONTENT = {payload};\n",
         encoding="utf-8",
     )
+    # Change the URL when the index changes so browsers fetch the new album list.
+    version = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
+    html = HTML_PATH.read_text(encoding="utf-8")
+    html, replacements = re.subn(
+        r'(src="\./content/content-index\.js)(?:\?v=[^\"]*)?("\s*>)',
+        lambda match: f"{match.group(1)}?v={version}{match.group(2)}",
+        html,
+    )
+    if replacements != 1:
+        raise RuntimeError("Expected exactly one content-index.js script in index.html")
+    HTML_PATH.write_text(html, encoding="utf-8")
     print(f"Generated {JS_OUTPUT.relative_to(ROOT)}")
     print(f"Generated {JSON_OUTPUT.relative_to(ROOT)}")
     print(
