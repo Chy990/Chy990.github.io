@@ -3504,3 +3504,33 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   .site-search-enter { display: none; }
   .site-search-results { max-height: 50vh; }
 }
+
+/* 新增照片沿用首屏的叠放图版，悬停时置顶。 */
+.hero-visual .hero-plate--extra {
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  width: min(210px, 35%);
+  transform: rotate(4deg);
+}
+.hero-visual .hero-plate--extra + .hero-plate--extra {
+  right: 32%;
+  bottom: 0;
+  z-index: 5;
+  width: min(195px, 32%);
+  transform: rotate(-4deg);
+}
+.hero-plate--extra img { aspect-ratio: 4 / 3; }
+.hero-visual .hero-plate:hover, .hero-visual .journal-card:hover,
+.hero-visual .hero-plate.is-front, .hero-visual .journal-card.is-front { z-index: 10; }
+.hero-plate--extra:hover {
+  box-shadow: var(--glass-highlight), 0 36px 68px -26px rgba(46, 35, 24, 0.5);
+  transform: rotate(0deg) translateY(-6px) scale(1.04);
+}
+.hero-visual .hero-plate--extra + .hero-plate--extra:hover {
+  transform: rotate(0deg) translateY(-6px) scale(1.04);
+}
+@media (max-width: 600px) {
+  .hero-visual .hero-plate--extra { width: 36%; }
+  .hero-visual .hero-plate--extra + .hero-plate--extra { right: 34%; width: 34%; }
+}

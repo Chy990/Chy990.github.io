@@ -1,17 +1,4 @@
-/*
-  hero-random.js — 首屏右侧三块内容的随机选择。
-
-  原来这两张照片和手记卡是直接写在 index.html 里的固定内容。
-  现在每次打开页面都会：
-  1. 从相册（优先不同相册）里随机挑 2 张照片；
-  2. 从笔记里随机挑 1 篇，把手记卡换成这篇笔记的标题；
-  3. 在 <head> 里预加载选中的两张缩略图，避免首屏空等；
-  4. 首屏 HTML 解析到之后，由 index.html 里的一小段脚本调用
-     applyHeroRandom() 把内容填进去。
-
-  这个文件在 <head> 里同步执行，只负责“选”和“预加载”；
-  真正改 DOM 的 applyHeroRandom 要等首屏结构存在后再调用。
-*/
+/* 首屏随机展示 3–5 项：一篇笔记和 2–4 张相册照片。 */
 (function () {
   const index = window.BLOG_CONTENT;
   if (!index) return;
@@ -41,28 +28,18 @@
     return album.cover ? [{ src: album.cover, alt: album.title || "" }] : [];
   }
 
-  /*
-    优先从两个不同相册各取一张，这样首屏不会总是同一趟旅行；
-    如果只有一个相册有照片，就从这个相册里随机取两张。
-  */
-  const albums = gallery.filter((album) => photosOf(album).length > 0);
-  let selections = [];
-
-  if (albums.length >= 2) {
-    shuffle(albums)
-      .slice(0, 2)
-      .forEach((album) => {
-        const photo = pickOne(photosOf(album));
-        if (photo) selections.push({ src: photo.src, alt: photo.alt, album });
-      });
-  } else if (albums.length === 1) {
-    const album = albums[0];
-    selections = shuffle(photosOf(album))
-      .slice(0, 2)
-      .map((photo) => ({ src: photo.src, alt: photo.alt, album }));
-  }
-
-  selections = selections.slice(0, 2);
+  // 先从不同相册各取一张，再从剩余照片补足，避免重复。
+  const albums = shuffle(gallery.filter((album) => photosOf(album).length > 0));
+  const photoCount = 2 + Math.floor(Math.random() * 3);
+  const firstPhotos = albums.map((album) => {
+    const photo = pickOne(photosOf(album));
+    return { ...photo, album };
+  });
+  const usedSources = new Set(firstPhotos.map((photo) => photo.src));
+  const remainingPhotos = shuffle(albums.flatMap((album) => photosOf(album)
+    .filter((photo) => !usedSources.has(photo.src))
+    .map((photo) => ({ ...photo, album }))));
+  const selections = [...firstPhotos, ...remainingPhotos].slice(0, photoCount);
 
   const selectedNote = pickOne(notes);
   const hero = { photos: selections, note: selectedNote };
@@ -100,8 +77,7 @@
     document.head.append(link);
   }
 
-  preloadImage(selections[0]?.src, "high");
-  preloadImage(selections[1]?.src, "auto");
+  selections.forEach((photo, index) => preloadImage(photo.src, index === 0 ? "high" : "auto"));
 
   function applyPhoto(plate, selection, isMain) {
     if (!plate || !selection) return;
@@ -136,6 +112,18 @@
     const visual = document.querySelector(".hero-visual");
     if (!visual) return;
 
+    // 记住最近经过的图版，鼠标离开后仍保留它的层级。
+    if (!visual.dataset.frontTracking) {
+      visual.dataset.frontTracking = "true";
+      visual.addEventListener("pointerover", (event) => {
+        if (event.pointerType !== "mouse" && event.pointerType !== "pen") return;
+        const card = event.target.closest(".hero-plate, .journal-card");
+        if (!card || !visual.contains(card) || card.contains(event.relatedTarget)) return;
+        visual.querySelectorAll(".is-front").forEach((item) => item.classList.remove("is-front"));
+        card.classList.add("is-front");
+      });
+    }
+
     const mainPlate =
       visual.querySelector('[data-hero-plate="main"]') || visual.querySelector(".hero-plate--main");
     const subPlate =
@@ -143,6 +131,17 @@
 
     applyPhoto(mainPlate, selections[0], true);
     applyPhoto(subPlate, selections[1], false);
+
+    visual.querySelectorAll("[data-hero-extra]").forEach((plate) => plate.remove());
+    selections.slice(2).forEach((selection) => {
+      const plate = document.createElement("div");
+      plate.className = "hero-plate hero-plate--extra";
+      plate.setAttribute("data-hero-extra", "");
+      plate.innerHTML = '<figure class="hero-photo"><img alt="" decoding="async"><figcaption><span data-hero-place></span><span data-hero-date></span></figcaption></figure>';
+      applyPhoto(plate, selection, false);
+      visual.append(plate);
+    });
+    visual.dataset.heroCount = String(3 + Math.max(0, selections.length - 2));
 
     if (!selectedNote) return;
 
