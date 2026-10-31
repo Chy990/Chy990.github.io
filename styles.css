@@ -3534,3 +3534,15 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   .hero-visual .hero-plate--extra { width: 36%; }
   .hero-visual .hero-plate--extra + .hero-plate--extra { right: 34%; width: 34%; }
 }
+
+/* 个人页的社交入口：仅在填写网址后显示。 */
+.profile-social { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
+.profile-social[hidden], .profile-social a[hidden] { display: none; }
+.profile-social-label { color: var(--faint); font-family: var(--font-mono); font-size: 9px; letter-spacing: .13em; }
+.profile-social-label span { padding: 0 3px; color: var(--accent); }
+.profile-social-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-social-links a { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--rule); border-radius: 50%; background: var(--glass-strong); box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(46, 35, 24, .7); color: var(--ink-2); text-decoration: none; -webkit-tap-highlight-color: transparent; transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 320ms var(--ease-spring), box-shadow 220ms ease; }
+.profile-social-links a svg { width: 19px; height: 19px; }
+.profile-social-links a:hover, .profile-social-links a:focus-visible { border-color: var(--ink); background: var(--ink); box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(46, 35, 24, .6); color: var(--paper); transform: translateY(-2px) scale(1.04); }
+.profile-social-links a:active { transform: scale(.92); }
+@media (max-width: 600px) { .profile-social { gap: 12px; padding-top: 18px; } .profile-social-links { width: 100%; } }

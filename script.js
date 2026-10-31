@@ -2885,7 +2885,28 @@ document.querySelector("#reader")?.addEventListener("scroll", updateReaderProgre
   3. 更新一次导航状态。
   4. 读取内容文件并渲染笔记、仓库、相册、更新。
 */
+// 只展示填了完整 http(s) 网址的社交链接，空配置不占用版面。
+function setupProfileSocial() {
+  const section = document.querySelector(".profile-social");
+  if (!section) return;
+  let visibleCount = 0;
+  section.querySelectorAll("a").forEach((link) => {
+    const href = link.getAttribute("href").trim();
+    let valid = false;
+    try {
+      const url = new URL(href);
+      valid = url.protocol === "https:" || url.protocol === "http:";
+    } catch (_) {
+      // 留空或未填写完整网址时，保持隐藏。
+    }
+    link.hidden = !valid;
+    if (valid) visibleCount += 1;
+  });
+  section.hidden = visibleCount === 0;
+}
+
 setupReaderDebugHud();
+setupProfileSocial();
 setupThemeToggle();
 setupTermTip();
 syncNavPlacement();
