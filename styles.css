@@ -770,9 +770,9 @@ body.nav-dock-ipad .nav-lens:not(.is-tracking) {
    ================================================================ */
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
   align-items: center;
-  gap: clamp(36px, 6vw, 84px);
+  gap: clamp(24px, 4vw, 56px);
   min-height: calc(100svh - 300px);
   padding: clamp(24px, 3vw, 40px) 0 clamp(22px, 3vw, 32px);
 }
@@ -789,7 +789,7 @@ h1 {
   max-width: 9.2em;
   margin: 0 0 28px;
   font-family: var(--font-display);
-  font-size: clamp(46px, 7.1vw, 96px);
+  font-size: clamp(42px, 5.6vw, 78px);
   font-weight: 600;
   letter-spacing: -0.028em;
   line-height: 1.07;
@@ -3546,3 +3546,314 @@ body.nav-docked.nav-dock-ipad .reader-bar {
 .profile-social-links a:hover, .profile-social-links a:focus-visible { border-color: var(--ink); background: var(--ink); box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(46, 35, 24, .6); color: var(--paper); transform: translateY(-2px) scale(1.04); }
 .profile-social-links a:active { transform: scale(.92); }
 @media (max-width: 600px) { .profile-social { gap: 12px; padding-top: 18px; } .profile-social-links { width: 100%; } }
+
+/* ================================================================
+   首屏生活切片：卡片立在一圈真正的 3D 圆环上，镜头略微俯视。
+   圆环半径、卡片尺寸和舞台高度由 hero-random.js 按容器宽度算好；
+   地面轨道、接触阴影和刻度珠由脚本按同一套透视公式投影进 svg，
+   所以轨道上下两侧和卡片的上下边缘都严格对称。
+   ================================================================ */
+.hero-visual {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  max-width: 820px;
+  margin-inline: auto;
+}
+.hero-orbit {
+  --card-w: 200px;
+  --card-h: 260px;
+  --orbit-perspective: 2000px;
+  --orbit-origin-y: 210px;
+  --orbit-plate: rgba(23, 21, 15, 0.028);
+  --orbit-shadow: rgba(46, 35, 24, 0.3);
+  position: relative;
+  height: 500px;
+  perspective: var(--orbit-perspective);
+  perspective-origin: 50% var(--orbit-origin-y);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+:root[data-theme="dark"] .hero-orbit {
+  --orbit-plate: rgba(242, 237, 225, 0.03);
+  --orbit-shadow: rgba(0, 0, 0, 0.62);
+}
+.hero-orbit.is-dragging { cursor: grabbing; }
+.hero-orbit:focus { outline: none; }
+.hero-orbit:focus-visible {
+  border-radius: var(--radius-lg);
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+/* 圆环背后的大号描边字，从卡片的缝隙里透出来。 */
+.hero-orbit-mark {
+  position: absolute;
+  top: calc(var(--orbit-origin-y) - var(--card-h) * 0.5);
+  left: 50%;
+  margin: 0;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: calc(var(--card-w) * 0.66);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  white-space: nowrap;
+  -webkit-text-stroke: 1px var(--rule-strong);
+  opacity: 0.38;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.hero-orbit-floor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.hero-orbit-floor stop { stop-color: var(--orbit-shadow); }
+.orbit-track {
+  fill: var(--orbit-plate);
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+.orbit-bead {
+  fill: var(--paper);
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+  transition: fill 300ms, stroke 300ms;
+}
+.orbit-bead.is-current {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.hero-orbit-ring {
+  position: absolute;
+  top: var(--orbit-origin-y);
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(-340px) rotateX(-9deg);
+}
+.orbit-card {
+  position: absolute;
+  top: calc(var(--card-h) / -2);
+  left: calc(var(--card-w) / -2);
+  width: var(--card-w);
+  height: var(--card-h);
+  color: var(--ink);
+  text-decoration: none;
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--i, 0) * 36deg)) translateZ(340px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 正反两面都背面隐藏：前半圈看到照片，后半圈看到“相纸背面”。 */
+.orbit-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--glass-highlight), 0 18px 36px -28px rgba(46, 35, 24, 0.5);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition: box-shadow 320ms;
+}
+/* 越偏离正前方，越蒙上一层纸色，像空气透视一样往后退。 */
+.orbit-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--paper);
+  opacity: calc((1 - var(--facing, 1)) * 0.5);
+  pointer-events: none;
+}
+.orbit-card.is-current .orbit-face--front {
+  box-shadow: var(--glass-highlight), 0 34px 60px -30px rgba(46, 35, 24, 0.62);
+}
+.orbit-face--photo {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 8px 0;
+}
+.orbit-face--photo img {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border-radius: calc(var(--radius-lg) - 8px);
+  object-fit: cover;
+  filter: var(--photo-filter);
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.orbit-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 5px 11px;
+}
+.orbit-caption span:first-child {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: clamp(12px, calc(var(--card-w) * 0.064), 15px);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orbit-caption span:last-child {
+  flex-shrink: 0;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.orbit-face--note {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(var(--card-w) * 0.1) calc(var(--card-w) * 0.09);
+  border-top: 3px solid var(--accent);
+  background:
+    radial-gradient(circle at 100% 0, var(--accent-soft), transparent 55%),
+    var(--card);
+}
+.orbit-note-label,
+.orbit-note-foot {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+}
+.orbit-note-foot { color: var(--faint); }
+.orbit-face--note strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  font-family: var(--font-display);
+  font-size: calc(var(--card-w) * 0.096);
+  font-weight: 600;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.orbit-face--back {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px;
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 9px var(--paper-2), inset 0 0 0 10px var(--rule), var(--shadow-card);
+  color: var(--faint);
+  text-align: center;
+  transform: rotateY(180deg);
+}
+.orbit-face--back::after { opacity: calc(0.18 - var(--facing, -1) * 0.22); }
+.orbit-face--back strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-family: var(--font-display);
+  font-size: calc(var(--card-w) * 0.085);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orbit-back-no,
+.orbit-back-meta,
+.orbit-back-mark {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.orbit-back-mark {
+  margin-top: 8px;
+  padding: 4px 8px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  color: var(--accent);
+  opacity: 0.7;
+  transform: rotate(-6deg);
+}
+
+/* 圆环下方只留左右两个切换键，居中摆放。 */
+.hero-orbit-controls {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+.hero-orbit-controls[hidden] { display: none; }
+.hero-orbit-controls button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 200ms, border-color 200ms, color 200ms, transform 260ms var(--ease-spring);
+  -webkit-tap-highlight-color: transparent;
+}
+.hero-orbit-controls button:hover,
+.hero-orbit-controls button:focus-visible {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+.hero-orbit-controls button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.hero-orbit-controls button:active { transform: scale(0.9); }
+.hero-orbit-controls svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+/* 单列布局时，给描边字留出和上方文字的距离。 */
+@media (max-width: 900px) {
+  .hero-visual { margin-top: 28px; }
+}
+@media (max-width: 600px) {
+  .hero-visual { margin-top: 0; }
+  /* 窄屏两侧要裁切，描边字会被切掉一半，干脆不画。 */
+  .hero-orbit-mark { display: none; }
+  .hero-orbit {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  }
+  .hero-orbit-controls button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-face,
+  .hero-orbit-controls button { transition: none; }
+}
