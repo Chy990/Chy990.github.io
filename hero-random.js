@@ -296,7 +296,7 @@
     function tick(now) {
       const dt = Math.max(0, Math.min((now - lastTime) / 1000, 1 / 30));
       lastTime = now;
-      velocity += ((target - angle) * 110 - velocity * 17) * dt;
+      velocity += ((target - angle) * stiffness - velocity * damping) * dt;
       angle += velocity * dt;
       if (Math.abs(target - angle) < 0.0004 && Math.abs(velocity) < 0.004) {
         angle = target;
@@ -309,8 +309,13 @@
       frame = requestAnimationFrame(tick);
     }
 
-    function settle(next) {
+    // 按钮、方向键用偏快的弹簧；甩出去时换成更软的，让惯性滑行看得见。
+    let stiffness = 110;
+    let damping = 17;
+    function settle(next, glide = false) {
       target = next;
+      stiffness = glide ? 42 : 110;
+      damping = glide ? 2 * Math.sqrt(stiffness) : 17;
       if (reduceMotion.matches) {
         stop();
         angle = target;
@@ -389,7 +394,7 @@
       if (!event.isPrimary || event.button !== 0 || !radius) return;
       stop();
       target = angle;
-      drag = { id: event.pointerId, x: event.clientX, angle, moved: false, lastX: event.clientX, lastTime: event.timeStamp, speed: 0 };
+      drag = { id: event.pointerId, x: event.clientX, angle, moved: false, samples: [{ x: event.clientX, t: event.timeStamp }] };
     });
     orbit.addEventListener("pointermove", (event) => {
       if (!drag || event.pointerId !== drag.id) return;
@@ -401,28 +406,52 @@
         try { orbit.setPointerCapture(event.pointerId); } catch (error) { /* 指针已经结束时忽略 */ }
         orbit.classList.add("is-dragging");
       }
-      const elapsed = event.timeStamp - drag.lastTime;
-      if (elapsed > 0) {
-        const speed = (event.clientX - drag.lastX) / radius / (elapsed / 1000);
-        drag.speed = drag.speed * 0.6 + speed * 0.4;
-      }
-      drag.lastX = event.clientX;
-      drag.lastTime = event.timeStamp;
+      // 只留最近 150ms 的轨迹，松手时用它算手指真实的速度。
+      const samples = drag.samples;
+      samples.push({ x: event.clientX, t: event.timeStamp });
+      while (samples.length > 2 && samples[0].t < event.timeStamp - 150) samples.shift();
       angle = target = drag.angle + dx / radius;
       render();
     });
     function endDrag(event) {
       if (!drag || event.pointerId !== drag.id) return;
-      const { moved, speed, lastTime: lastMove } = drag;
+      const { moved, samples, angle: startAngle } = drag;
       drag = null;
       if (moved) {
         orbit.classList.remove("is-dragging");
         suppressClick = true;
         setTimeout(() => { suppressClick = false; }, 0);
-        // 停住一会儿再松手就不甩，只吸附到最近的一张。
-        const flick = event.timeStamp - lastMove > 90 ? 0 : Math.max(-12, Math.min(12, speed));
+        // 速度取松手前 100ms 内的平均值；手指抬起前常会本能地减速一两帧，
+        // 所以再参考这段时间里的峰值速度（打个折），甩动不会被最后几帧“吃掉”。
+        // 停住超过 100ms 再松手时窗口里没有位移，自然不甩。
+        // pointercancel 说明浏览器接管了手势，坐标不可靠，只吸附不甩。
+        let flick = 0;
+        if (event.type === "pointerup") {
+          samples.push({ x: event.clientX, t: event.timeStamp });
+          const last = samples[samples.length - 1];
+          const recent = samples.filter((sample) => sample.t >= last.t - 100);
+          const span = (last.t - recent[0].t) / 1000;
+          if (span > 0.012) {
+            const average = (last.x - recent[0].x) / span;
+            let peak = 0;
+            for (let k = 1; k < recent.length; k += 1) {
+              const dt = (recent[k].t - recent[k - 1].t) / 1000;
+              if (dt > 0.004) {
+                const speed = (recent[k].x - recent[k - 1].x) / dt;
+                if (Math.sign(speed) === Math.sign(average) && Math.abs(speed) > Math.abs(peak)) peak = speed;
+              }
+            }
+            const speed = Math.abs(peak) * 0.65 > Math.abs(average) ? peak * 0.65 : average;
+            flick = Math.max(-14, Math.min(14, speed / radius));
+          }
+        }
+        // 惯性滑行的距离约等于速度 × 0.38 秒，和系统列表的手感接近。
+        let next = snap(angle + flick * 0.38);
+        // 明确的一次轻扫至少翻过一张，不会又弹回原来那张。
+        const startStep = Math.round(startAngle / step);
+        if (Math.abs(flick) > 0.6 && Math.round(next / step) === startStep) next = (startStep + Math.sign(flick)) * step;
         velocity = flick;
-        settle(snap(angle + flick * 0.2));
+        settle(next, flick !== 0);
       }
     }
     orbit.addEventListener("pointerup", endDrag);
