@@ -58,9 +58,6 @@
     document.head.append(link);
   });
 
-
-  const pad = (value) => String(value).padStart(2, "0");
-
   function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -68,11 +65,10 @@
     return node;
   }
 
-  function cardShell(label, info) {
+  function cardShell(label) {
     const card = el("div", "orbit-card");
     card.setAttribute("role", "group");
     card.setAttribute("aria-label", label);
-    card.heroInfo = info;
     return card;
   }
 
@@ -80,10 +76,7 @@
     const album = selection.album;
     const place = album.place || album.title || "相册";
     const date = dateLabel(album.date);
-    const card = cardShell(
-      [selection.alt, place, date].filter(Boolean).join(" · "),
-      { kind: "相册", title: place, date }
-    );
+    const card = cardShell([selection.alt, place, date].filter(Boolean).join(" · "));
     const face = el("div", "orbit-face orbit-face--front orbit-face--photo");
     const image = document.createElement("img");
     image.src = thumbnailSrc(selection.src);
@@ -103,10 +96,7 @@
     const date = dateLabel(note.date);
     const title = `《${note.title || "未命名笔记"}》`;
     const type = note.type || "笔记";
-    const card = cardShell(
-      `笔记${title} · ${type} · ${date}`,
-      { kind: "笔记", title, date }
-    );
+    const card = cardShell(`笔记${title} · ${type} · ${date}`);
     const face = el("div", "orbit-face orbit-face--front orbit-face--note");
     face.append(
       el("span", "orbit-note-label", `笔记摘录 · ${date}`),
@@ -117,26 +107,23 @@
     return card;
   }
 
-  // HTML 里的静态兜底卡片没有 heroInfo，从卡片标题里读回来。
-  function infoOf(card) {
-    if (card.heroInfo) return card.heroInfo;
-    const spans = card.querySelectorAll(".orbit-caption span");
-    return {
-      kind: "相册",
-      title: spans[0] ? spans[0].textContent : "",
-      date: spans[1] ? spans[1].textContent : "",
-    };
-  }
-
-  // 转到后半圈时露出的“相纸背面”。
-  function backFace(info, index, count) {
+  // 转到后半圈时露出的“相纸背面”：不写字，只透出镜像、虚化的照片，像隔着相纸看到的影子。
+  function backFace(card) {
     const back = el("div", "orbit-face orbit-face--back");
-    back.append(
-      el("span", "orbit-back-no", `No.${pad(index + 1)} / ${pad(count)}`),
-      el("strong", "", info.title),
-      el("span", "orbit-back-meta", `${info.kind} · ${info.date}`),
-      el("span", "orbit-back-mark", "CHEN'S LAB")
-    );
+    const front = card.querySelector(".orbit-face--front img");
+    if (front) {
+      const ghost = document.createElement("img");
+      ghost.className = "orbit-back-ghost";
+      ghost.src = front.getAttribute("src");
+      if (front.dataset.fallbackSrc) ghost.dataset.fallbackSrc = front.dataset.fallbackSrc;
+      ghost.alt = "";
+      ghost.decoding = "async";
+      ghost.loading = "lazy";
+      ghost.draggable = false;
+      back.append(ghost);
+    } else {
+      back.classList.add("orbit-face--back-note");
+    }
     return back;
   }
 
@@ -165,15 +152,15 @@
     const count = cards.length;
     if (!count) return;
     const step = Math.PI * 2 / count;
-    const infos = cards.map(infoOf);
     cards.forEach((card, i) => {
       card.style.setProperty("--i", i);
-      card.append(backFace(infos[i], i, count));
+      card.append(backFace(card));
     });
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     // 地面：轨道、每张卡片的接触阴影和轨道上的刻度珠，都按卡片的真实位置投影出来。
+    const mark = orbit.querySelector(".hero-orbit-mark");
     const floor = orbit.querySelector(".hero-orbit-floor");
     const gradient = svgEl("radialGradient", { id: "hero-orbit-shade" });
     gradient.append(svgEl("stop", { offset: "0", "stop-opacity": "1" }), svgEl("stop", { offset: "1", "stop-opacity": "0" }));
@@ -219,7 +206,9 @@
       originY = 0;
       const top = -project(0, -cardH / 2, -radius).y;
       const bottom = Math.max(project(0, cardH / 2, radius + lift).y, project(0, floorY, radius).y);
-      originY = Math.round(top + 18);
+      // 描边字放在后排卡片上沿之上，整圈转起来也不会挡住它。
+      const markSize = mark && getComputedStyle(mark).display !== "none" ? Math.round(cardW * 0.42) : 0;
+      originY = Math.round(top + (markSize ? markSize + 26 : 18));
       const height = Math.ceil(originY + bottom + 20);
 
       orbit.style.height = `${height}px`;
@@ -227,6 +216,7 @@
       orbit.style.setProperty("--card-h", `${cardH}px`);
       orbit.style.setProperty("--orbit-perspective", `${Math.round(perspective)}px`);
       orbit.style.setProperty("--orbit-origin-y", `${originY}px`);
+      orbit.style.setProperty("--mark-size", `${markSize}px`);
       floor.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
       const points = [];
