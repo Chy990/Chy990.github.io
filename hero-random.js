@@ -107,28 +107,8 @@
     return card;
   }
 
-  // 转到后半圈时露出的“相纸背面”：不写字，只透出镜像、虚化的照片，像隔着相纸看到的影子。
-  function backFace(card) {
-    const back = el("div", "orbit-face orbit-face--back");
-    const front = card.querySelector(".orbit-face--front img");
-    if (front) {
-      const ghost = document.createElement("img");
-      ghost.className = "orbit-back-ghost";
-      ghost.src = front.getAttribute("src");
-      if (front.dataset.fallbackSrc) ghost.dataset.fallbackSrc = front.dataset.fallbackSrc;
-      ghost.alt = "";
-      ghost.decoding = "async";
-      ghost.loading = "lazy";
-      ghost.draggable = false;
-      back.append(ghost);
-    } else {
-      back.classList.add("orbit-face--back-note");
-    }
-    return back;
-  }
-
   const TILT = 9 * Math.PI / 180; // 镜头俯视的角度
-    const SVG_NS = "http://www.w3.org/2000/svg";
+  const SVG_NS = "http://www.w3.org/2000/svg";
 
   function svgEl(tag, attrs) {
     const node = document.createElementNS(SVG_NS, tag);
@@ -152,10 +132,7 @@
     const count = cards.length;
     if (!count) return;
     const step = Math.PI * 2 / count;
-    cards.forEach((card, i) => {
-      card.style.setProperty("--i", i);
-      card.append(backFace(card));
-    });
+    cards.forEach((card, i) => card.style.setProperty("--i", i));
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -172,6 +149,8 @@
     floor.replaceChildren(defs, track, ...shadows, ...beads);
 
     let radius = 0;
+    let spacing = 0;
+    let halfWidth = 0;
     let floorY = 0;
     let cardW = 0;
     let cardH = 0;
@@ -191,23 +170,28 @@
     function layout() {
       const width = orbit.clientWidth;
       if (!width) return;
-      const tan = Math.tan(Math.PI / Math.max(count, 4));
-      const gap = Math.max(12, width * 0.028);
-      // 先让整圈刚好放进容器；窄屏时给卡片保底宽度，两侧允许被裁掉。
-      cardW = Math.min(250, 2 * width * 0.45 * tan - gap);
-      cardW = Math.round(Math.max(cardW, Math.min(width * 0.4, 170), 96));
+      // 窄屏正中那张占一半宽度、两侧各露出一截；宽屏并排看到三张。
+      cardW = Math.round(Math.min(230, Math.max(120, width * (width < 520 ? 0.46 : 0.28))));
       cardH = Math.round(cardW * 1.3);
-      radius = Math.max((cardW + gap) / (2 * tan), cardW * 0.75);
+      spacing = cardW + Math.max(14, cardW * 0.1);
+      // 圆环半径是容器宽度的 2.4 倍：眼前只是一个大圆环上很浅的一段弧。
+      radius = width * 2.4;
       // 地面比卡片下沿低一点：卡片悬在转盘上方，轨道上的点刚好露在每张卡片正下方。
       floorY = cardH / 2 + Math.max(8, Math.round(cardW * 0.05));
       lift = cardW * 0.12;
-      perspective = radius * 4 + 600;
-      originX = width / 2;
+      perspective = width * 2 + 600;
+      halfWidth = width / 2;
+      originX = halfWidth;
       originY = 0;
-      const top = -project(0, -cardH / 2, -radius).y;
+      // 看得见的弧段延伸到容器边缘再多半张卡片。
+      const edge = Math.asin(Math.min(1, (halfWidth + cardW / 2) / radius));
+      const top = -Math.min(
+        project(0, -cardH / 2, radius + lift).y,
+        project(radius * Math.sin(edge), -cardH / 2, radius * Math.cos(edge)).y
+      );
       const bottom = Math.max(project(0, cardH / 2, radius + lift).y, project(0, floorY, radius).y);
-      // 描边字放在后排卡片上沿之上，整圈转起来也不会挡住它。
-      const markSize = mark && getComputedStyle(mark).display !== "none" ? Math.round(cardW * 0.42) : 0;
+      // 描边字放在卡片上沿之上，转起来也不会挡住它。
+      const markSize = mark && getComputedStyle(mark).display !== "none" ? Math.round(Math.min(cardW * 0.42, width * 0.15)) : 0;
       originY = Math.round(top + (markSize ? markSize + 26 : 18));
       const height = Math.ceil(originY + bottom + 20);
 
@@ -220,12 +204,11 @@
       floor.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
       const points = [];
-      for (let k = 0; k < 96; k += 1) {
-        const t = k / 96 * Math.PI * 2;
-        const p = project(radius * Math.sin(t), floorY, radius * Math.cos(t));
-        points.push(`${p.x.toFixed(1)} ${p.y.toFixed(1)}`);
+      for (let k = 0; k <= 32; k += 1) {
+        const t = (k / 16 - 1) * edge;
+        points.push(project(radius * Math.sin(t), floorY, radius * Math.cos(t)));
       }
-      track.setAttribute("d", `M${points.join("L")}Z`);
+      track.setAttribute("d", `M${points.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join("L")}`);
     }
 
     let angle = 0;
@@ -236,6 +219,8 @@
     let current = -1;
 
     const wrap = (index) => ((index % count) + count) % count;
+    // 手指或滚轮移动一张卡片的间距，就转过一格。
+    const toAngle = (px) => px / spacing * step;
     const snap = (value) => Math.round(value / step) * step;
 
     function setCurrent(index) {
@@ -249,16 +234,25 @@
     }
 
     function render() {
-      ring.style.transform = `translateZ(${(-radius).toFixed(1)}px) rotateX(${-TILT}rad) rotateY(${angle}rad)`;
+      ring.style.transform = `translateZ(${(-radius).toFixed(1)}px) rotateX(${-TILT}rad)`;
       const half = cardW / 2;
       cards.forEach((card, i) => {
-        const turn = i * step + angle;
-        const sin = Math.sin(turn);
-        const cos = Math.cos(turn);
+        // 卡片离正前方差几张；绕出视野的那张从另一侧接回来，十张卡片无缝循环。
+        let offset = (i * step + angle) / step;
+        offset -= count * Math.round(offset / count);
+        const theta = offset * spacing / radius;
+        const sin = Math.sin(theta);
+        const cos = Math.cos(theta);
         // 只有正前方那张会浮起来一点，邻居几乎不动。
-        const z = radius + lift * Math.pow(Math.max(0, cos), 16);
-        card.style.transform = `rotateY(${i * step}rad) translateZ(${z.toFixed(1)}px)`;
-        card.style.setProperty("--facing", cos.toFixed(3));
+        const z = radius + lift * Math.exp(-3 * offset * offset);
+        card.style.transform = `rotateY(${theta.toFixed(5)}rad) translateZ(${z.toFixed(1)}px)`;
+        card.style.setProperty("--facing", Math.cos(Math.min(Math.abs(offset), 3) * 0.5).toFixed(3));
+        // 两侧的淡出交给舞台遮罩；这里只处理卡片很少时的循环接缝，不能当着人跳到另一侧。
+        const alpha = Math.min(1, Math.max(0, (count / 2 - Math.abs(offset)) * 2));
+        card.style.opacity = alpha.toFixed(3);
+        // 整张移出舞台或已淡出的卡片不再参与绘制和点击。
+        const outside = Math.abs(project(z * sin, 0, z * cos).x - originX) > halfWidth + half;
+        card.style.visibility = outside || alpha < 0.01 ? "hidden" : "";
 
         const left = project(-half * cos + z * sin, floorY, half * sin + z * cos);
         const right = project(half * cos + z * sin, floorY, -half * sin + z * cos);
@@ -271,12 +265,14 @@
         shadow.setAttribute("rx", (Math.hypot(right.x - left.x, right.y - left.y) / 2 + 8 * scale).toFixed(1));
         shadow.setAttribute("ry", (8 * scale).toFixed(1));
         shadow.setAttribute("transform", `rotate(${(Math.atan2(right.y - left.y, right.x - left.x) * 180 / Math.PI).toFixed(2)} ${cx.toFixed(1)} ${cy.toFixed(1)})`);
+        shadow.setAttribute("opacity", alpha.toFixed(3));
 
         // 刻度点固定在圆环半径上，正对每张卡片下沿的中点。
         const bead = project(radius * sin, floorY, radius * cos);
         beads[i].setAttribute("cx", bead.x.toFixed(1));
         beads[i].setAttribute("cy", bead.y.toFixed(1));
         beads[i].setAttribute("r", ((i === current ? 4 : 2.4) * bead.scale).toFixed(2));
+        beads[i].setAttribute("opacity", alpha.toFixed(3));
       });
       const nearest = wrap(Math.round(-angle / step));
       if (nearest !== current) setCurrent(nearest);
@@ -372,14 +368,14 @@
       event.preventDefault();
       stop();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? orbit.clientWidth : 1;
-      angle -= horizontal * unit / radius;
+      angle -= toAngle(horizontal * unit);
       target = angle;
       render();
       clearTimeout(wheelTimer);
       wheelTimer = setTimeout(() => settle(snap(angle)), 140);
     }, { passive: false });
 
-    // 拖拽：卡片跟着手指沿圆周走（位移 / 半径 = 转角），松手时按速度甩出去再吸附。
+    // 拖拽：卡片跟着手指沿圆弧走，松手时按速度甩出去再吸附。
     // 手机屏幕窄，一比一跟手要划小半个屏幕才翻一张，所以触摸时把转角放大一些。
     const TOUCH_GAIN = 1.6;
     let dragFrame = 0;
@@ -406,7 +402,7 @@
       const samples = drag.samples;
       samples.push({ x: event.clientX, t: event.timeStamp });
       while (samples.length > 2 && samples[0].t < event.timeStamp - 150) samples.shift();
-      angle = target = drag.angle + (event.clientX - drag.x) * drag.gain / radius;
+      angle = target = drag.angle + toAngle((event.clientX - drag.x) * drag.gain);
       // 一帧里可能来好几次 move，只在下一帧画一次。
       if (!dragFrame) dragFrame = requestAnimationFrame(() => { dragFrame = 0; render(); });
     });
@@ -439,7 +435,7 @@
               }
             }
             const speed = Math.abs(peak) * 0.65 > Math.abs(average) ? peak * 0.65 : average;
-            flick = Math.max(-14, Math.min(14, speed * gain / radius));
+            flick = Math.max(-14, Math.min(14, toAngle(speed * gain)));
           }
         }
         // 惯性滑行的距离约等于速度 × 0.38 秒，和系统列表的手感接近。

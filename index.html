@@ -41,7 +41,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261102-1" />
+    <link rel="stylesheet" href="./styles.css?v=20261102-6" />
 
     <!--
       首屏右侧每次随机挑选十项：相册照片和一篇笔记。
@@ -49,7 +49,7 @@
       把选中的缩略图预加载好。
     -->
     <script src="./content/content-index.js?v=f58e4c5b1fa1"></script>
-    <script src="./hero-random.js?v=20261102-1"></script>
+    <script src="./hero-random.js?v=20261102-5"></script>
   </head>
   <body>
     <!-- 键盘用户可以直接跳过导航，进入正文。 -->
@@ -172,16 +172,18 @@
           </div>
 
           <!--
-            生活切片：卡片立在一圈真正的 3D 圆环上，镜头略微俯视。
+            生活切片：卡片立在一个很大的 3D 圆环上，镜头略微俯视，只看得到正前方一段浅弧，两侧由舞台遮罩渐隐。
             地面轨道和卡片阴影画在 svg 里，由脚本按同一套透视公式投影。
           -->
           <div class="hero-visual" data-reveal>
             <div class="hero-orbit" role="region" tabindex="0" aria-roledescription="轮播" aria-label="生活切片：随机笔记和相册照片" aria-describedby="hero-orbit-hint">
               <p class="hero-orbit-mark" aria-hidden="true">生活切片</p>
-              <svg class="hero-orbit-floor" aria-hidden="true"></svg>
-              <div class="hero-orbit-ring">
-                <div class="orbit-card is-current" role="group" style="--i: 0" aria-label="维洲街头的电车、行人与树影 · 维洲 · 2026.03"><div class="orbit-face orbit-face--front orbit-face--photo"><img src="./content/gallery/_thumbs/20260320维洲/mel1.jpg" data-fallback-src="./content/gallery/20260320维洲/mel1.jpg" alt="" /><div class="orbit-caption"><span>维洲</span><span>2026.03</span></div></div></div>
-                <div class="orbit-card" role="group" style="--i: 1" aria-label="回吉林的航班上，机翼与云层 · 吉林 · 2026.06"><div class="orbit-face orbit-face--front orbit-face--photo"><img src="./content/gallery/_thumbs/20260621吉林/flight-home.jpg" data-fallback-src="./content/gallery/20260621吉林/flight-home.jpg" alt="" /><div class="orbit-caption"><span>吉林</span><span>2026.06</span></div></div></div>
+              <div class="hero-orbit-stage">
+                <svg class="hero-orbit-floor" aria-hidden="true"></svg>
+                <div class="hero-orbit-ring">
+                  <div class="orbit-card is-current" role="group" style="--i: 0" aria-label="维洲街头的电车、行人与树影 · 维洲 · 2026.03"><div class="orbit-face orbit-face--front orbit-face--photo"><img src="./content/gallery/_thumbs/20260320维洲/mel1.jpg" data-fallback-src="./content/gallery/20260320维洲/mel1.jpg" alt="" /><div class="orbit-caption"><span>维洲</span><span>2026.03</span></div></div></div>
+                  <div class="orbit-card" role="group" style="--i: 1" aria-label="回吉林的航班上，机翼与云层 · 吉林 · 2026.06"><div class="orbit-face orbit-face--front orbit-face--photo"><img src="./content/gallery/_thumbs/20260621吉林/flight-home.jpg" data-fallback-src="./content/gallery/20260621吉林/flight-home.jpg" alt="" /><div class="orbit-caption"><span>吉林</span><span>2026.06</span></div></div></div>
+                </div>
               </div>
             </div>
             <div class="hero-orbit-controls" hidden>
