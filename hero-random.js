@@ -299,12 +299,12 @@
       frame = requestAnimationFrame(tick);
     }
 
-    // 按钮、方向键用偏快的弹簧；甩出去时换成更软的，让惯性滑行看得见。
+    // 按钮、方向键用偏快的弹簧；手指松开后换成更软、不回弹的，让惯性滑行看得见。
     let stiffness = 110;
     let damping = 17;
     function settle(next, glide = false) {
       target = next;
-      stiffness = glide ? 42 : 110;
+      stiffness = glide ? 52 : 110;
       damping = glide ? 2 * Math.sqrt(stiffness) : 17;
       if (reduceMotion.matches) {
         stop();
@@ -380,11 +380,15 @@
     }, { passive: false });
 
     // 拖拽：卡片跟着手指沿圆周走（位移 / 半径 = 转角），松手时按速度甩出去再吸附。
+    // 手机屏幕窄，一比一跟手要划小半个屏幕才翻一张，所以触摸时把转角放大一些。
+    const TOUCH_GAIN = 1.6;
+    let dragFrame = 0;
     orbit.addEventListener("pointerdown", (event) => {
       if (!event.isPrimary || event.button !== 0 || !radius) return;
       stop();
       target = angle;
-      drag = { id: event.pointerId, x: event.clientX, angle, moved: false, samples: [{ x: event.clientX, t: event.timeStamp }] };
+      const gain = event.pointerType === "touch" ? TOUCH_GAIN : 1;
+      drag = { id: event.pointerId, x: event.clientX, angle, gain, moved: false, samples: [{ x: event.clientX, t: event.timeStamp }] };
     });
     orbit.addEventListener("pointermove", (event) => {
       if (!drag || event.pointerId !== drag.id) return;
@@ -393,6 +397,8 @@
         if (Math.abs(dx) < 6) return;
         // 超过阈值才捕获指针，单纯的点击仍然落在卡片上。
         drag.moved = true;
+        // 从越过阈值的这一点开始跟手，圆环不会先跳一下。
+        drag.x = event.clientX;
         try { orbit.setPointerCapture(event.pointerId); } catch (error) { /* 指针已经结束时忽略 */ }
         orbit.classList.add("is-dragging");
       }
@@ -400,12 +406,13 @@
       const samples = drag.samples;
       samples.push({ x: event.clientX, t: event.timeStamp });
       while (samples.length > 2 && samples[0].t < event.timeStamp - 150) samples.shift();
-      angle = target = drag.angle + dx / radius;
-      render();
+      angle = target = drag.angle + (event.clientX - drag.x) * drag.gain / radius;
+      // 一帧里可能来好几次 move，只在下一帧画一次。
+      if (!dragFrame) dragFrame = requestAnimationFrame(() => { dragFrame = 0; render(); });
     });
     function endDrag(event) {
       if (!drag || event.pointerId !== drag.id) return;
-      const { moved, samples, angle: startAngle } = drag;
+      const { moved, samples, gain, angle: startAngle } = drag;
       drag = null;
       if (moved) {
         orbit.classList.remove("is-dragging");
@@ -432,7 +439,7 @@
               }
             }
             const speed = Math.abs(peak) * 0.65 > Math.abs(average) ? peak * 0.65 : average;
-            flick = Math.max(-14, Math.min(14, speed / radius));
+            flick = Math.max(-14, Math.min(14, speed * gain / radius));
           }
         }
         // 惯性滑行的距离约等于速度 × 0.38 秒，和系统列表的手感接近。
@@ -441,7 +448,7 @@
         const startStep = Math.round(startAngle / step);
         if (Math.abs(flick) > 0.6 && Math.round(next / step) === startStep) next = (startStep + Math.sign(flick)) * step;
         velocity = flick;
-        settle(next, flick !== 0);
+        settle(next, true);
       }
     }
     orbit.addEventListener("pointerup", endDrag);

@@ -3679,6 +3679,8 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   background: var(--paper);
   opacity: calc((1 - var(--facing, 1)) * 0.5);
   pointer-events: none;
+  /* 每帧都在变，单独成层后只改透明度，不用把整张卡片（含虚化背面）重画一遍。 */
+  will-change: opacity;
 }
 .orbit-card.is-current .orbit-face--front {
   box-shadow: var(--glass-highlight), 0 34px 60px -30px rgba(46, 35, 24, 0.62);
