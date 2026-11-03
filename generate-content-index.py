@@ -1,19 +1,3 @@
-#!/usr/bin/env python3
-"""
-Scan the content folders and generate content/content-index.js.
-
-You normally do not need to edit the generated file by hand:
-- Add or delete Markdown files in content/notes, content/repos, or content/updates.
-- Add or delete Markdown albums and jpg/png images in content/gallery.
-- Run start-blog.command again.
-
-Note filenames work best with this format:
-yyyy_mm_dd_type_title.md
-
-Example:
-2026_06_02_notes_ios2oppo.md
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -30,7 +14,7 @@ HTML_PATH = ROOT / "index.html"
 
 
 def read_first_heading(path: Path) -> str | None:
-    """Return the first Markdown H1 heading, without the leading '# '."""
+
     try:
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -68,12 +52,7 @@ def title_from_slug(slug: str) -> str:
 
 
 def note_entry(path: Path) -> dict[str, str]:
-    """
-    Build one note record from a Markdown file.
 
-    Preferred filename format:
-    2026_06_02_notes_ios2oppo.md
-    """
     match = re.match(r"^(\d{4})_(\d{2})_(\d{2})_([^_]+)_(.+)\.md$", path.name)
     heading = read_first_heading(path)
 
@@ -104,12 +83,7 @@ def repo_entry(path: Path) -> dict[str, str]:
 
 
 def update_entry(path: Path) -> dict[str, str]:
-    """
-    Build one update-history record from a Markdown file.
 
-    Preferred filename format:
-    content_updates.md or template_updates.md
-    """
     match = re.match(r"^([^_]+)_(.+)\.md$", path.name)
     heading = read_first_heading(path)
 
@@ -132,12 +106,7 @@ IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+[\"'][^\"']*[\"'])
 
 
 def gallery_photos(path: Path) -> list[dict[str, str]]:
-    """
-    Extract the local images referenced by a gallery Markdown file.
 
-    The alt text may carry a layout hint like `市区电车|portrait`; only the
-    readable part is kept. External images and duplicates are ignored.
-    """
     try:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
@@ -176,13 +145,13 @@ def gallery_entry(path: Path) -> dict:
         "cover": frontmatter.get("cover", ""),
         "title": heading or title_from_slug(path.stem),
         "file": path.name,
-        # 首页首屏会从这里随机挑照片，所以把 Markdown 里出现的图片也一起写进清单。
+        
         "photos": gallery_photos(path),
     }
 
 
 def collect() -> dict[str, list[dict]]:
-    """Collect all content records from notes, repos, and gallery folders."""
+    
     notes = sorted(
         (note_entry(path) for path in (CONTENT / "notes").glob("*.md")),
         key=lambda item: (item["date"], item["file"]),
