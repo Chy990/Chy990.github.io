@@ -970,6 +970,91 @@ function cancelNavScrollAnimation() {
 
   桌面端仍然使用 scrollIntoView，不改变原来的手感。
 */
+/*
+  Safari 的原生平滑滚动非常快（几乎一闪而过），和 Chrome 那种慢起慢停的过渡差很多；
+  而逐帧调用 window.scrollTo 自己补间，又只能靠主线程推，Safari 里帧率很低、发卡。
+
+  所以 WebKit 里用“FLIP 滚动”：
+  1. 先瞬间把页面滚到落点（只发生一次，用户看不到，因为第 2 步同一帧就把画面“拉回”原处）；
+  2. 给 <main> 和页脚加一个 transform 动画：从“看起来还在原来位置”的位移，过渡到 0。
+  transform 动画跑在合成线程上，不需要每帧执行 JS，ProMotion 屏上能跑满 120Hz，
+  主线程忙的时候也不会掉帧。页头是 sticky 的、不在动画里，所以它保持原地不动。
+
+  getTargetY 只在开始时算一次；中途用户滚轮 / 触摸 / 按键时，
+  把“当前看到的位置”换算成真实滚动位置后再停下，画面不会跳。
+*/
+const FLIP_SCROLL_EASING = "cubic-bezier(0.65, 0, 0.35, 1)"; // 近似 ease-in-out cubic
+
+function flipScrollLayers() {
+  return [document.querySelector("#main"), document.querySelector(".site-footer")].filter(Boolean);
+}
+
+// 动画途中会“掠过”的入场元素：真实滚动直接跳过了它们，观察器不会触发，提前显示出来，免得掠过时是空白。
+function revealRangeForFlip(fromY, toY) {
+  const top = Math.min(fromY, toY);
+  const bottom = Math.max(fromY, toY) + window.innerHeight;
+  document.querySelectorAll("[data-reveal]:not(.is-visible)").forEach((element) => {
+    const rect = element.getBoundingClientRect();
+    const elementTop = rect.top + window.scrollY;
+    if (elementTop + rect.height >= top && elementTop <= bottom) {
+      element.classList.add("is-visible");
+      revealObserver.unobserve(element);
+    }
+  });
+}
+
+function flipScrollTo(getTargetY, { onDone = () => {} } = {}) {
+  const html = document.documentElement;
+  const startY = window.scrollY;
+  const maxScroll = Math.max(0, html.scrollHeight - window.innerHeight);
+  const targetY = Math.round(clampNumber(getTargetY(), 0, maxScroll));
+  const offset = targetY - startY;
+  const layers = flipScrollLayers();
+  if (Math.abs(offset) < 2 || !layers.length) {
+    onDone();
+    return () => {};
+  }
+
+  // 短距离约 0.45 秒，长距离最多 0.95 秒。
+  const duration = clampNumber(380 + Math.sqrt(Math.abs(offset)) * 9, 450, 950);
+
+  revealRangeForFlip(startY, targetY);
+  jumpScrollTo(window.scrollX, targetY);
+
+  const animations = layers.map((layer) =>
+    layer.animate(
+      [
+        { transform: `translate3d(0, ${offset}px, 0)` },
+        { transform: "translate3d(0, 0, 0)" },
+      ],
+      { duration, easing: FLIP_SCROLL_EASING }
+    )
+  );
+
+  let stopped = false;
+  const stop = (completed = false) => {
+    if (stopped) return;
+    stopped = true;
+    if (!completed) {
+      // 中途打断：读出当前还剩多少位移，换算成真实滚动位置，再撤掉动画。
+      let remaining = 0;
+      try {
+        remaining = new DOMMatrixReadOnly(getComputedStyle(layers[0]).transform).m42 || 0;
+      } catch (error) {
+        remaining = 0;
+      }
+      animations.forEach((animation) => animation.cancel());
+      jumpScrollTo(window.scrollX, window.scrollY - remaining);
+      return;
+    }
+    animations.forEach((animation) => animation.cancel());
+    onDone();
+  };
+
+  animations[0].finished.then(() => stop(true), () => {});
+  return () => stop(false);
+}
+
 function scrollToSectionSmoothly(section) {
   cancelNavScrollAnimation();
 
@@ -1037,6 +1122,24 @@ function scrollToSectionSmoothly(section) {
   idleTimer = window.setTimeout(finish, 400);
   safetyTimer = window.setTimeout(finish, 2500);
 
+  if (isWebKitEngine) {
+    // 自己驱动滚动时，滚动事件会一直触发；结束由补间自己通知，不靠“停了多久”判断。
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("scrollend", finish);
+    window.clearTimeout(idleTimer);
+    const topInsetNow = topInset;
+    const stopTween = flipScrollTo(
+      () => window.scrollY + section.getBoundingClientRect().top - topInsetNow,
+      { onDone: finish }
+    );
+    const cleanup = navScrollCleanup;
+    navScrollCleanup = () => {
+      stopTween();
+      cleanup();
+    };
+    return;
+  }
+
   window.scrollTo({ top: targetY, behavior: "smooth" });
 }
 
@@ -1057,6 +1160,32 @@ function navigateNavLink(link) {
   }
 
   cancelNavScrollAnimation();
+
+  if (isWebKitEngine && !prefersReducedMotion()) {
+    // 和 scrollIntoView({ block: "start" }) 落点一致：尊重 CSS 里的 scroll-margin-top。
+    const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+    let cleanupTween = null;
+    const stopTween = flipScrollTo(() => window.scrollY + target.getBoundingClientRect().top - margin, {
+      // 正常滚完：走统一的清理，顺便移除下面的打断监听。
+      onDone: () => {
+        if (cleanupTween && navScrollCleanup === cleanupTween) cancelNavScrollAnimation();
+      },
+    });
+    // 用户自己滚轮 / 触摸 / 按键时立即把控制权还给他。
+    const interrupt = () => cancelNavScrollAnimation();
+    cleanupTween = () => {
+      stopTween();
+      window.removeEventListener("wheel", interrupt, true);
+      window.removeEventListener("touchstart", interrupt, true);
+      window.removeEventListener("keydown", interrupt, true);
+    };
+    window.addEventListener("wheel", interrupt, { passive: true, capture: true });
+    window.addEventListener("touchstart", interrupt, { passive: true, capture: true });
+    window.addEventListener("keydown", interrupt, true);
+    navScrollCleanup = cleanupTween;
+    return;
+  }
+
   target.scrollIntoView({
     behavior: prefersReducedMotion() ? "auto" : "smooth",
     block: "start",
@@ -2025,6 +2154,7 @@ function hideReader({ restoreFocus = true } = {}) {
   closeImageLightbox({ immediate: true });
   document.body.classList.remove("is-reader-open");
   document.body.classList.remove("is-reader-closing");
+  document.body.classList.remove("is-reader-returning");
   document.body.classList.remove("is-header-hidden");
   cancelReaderBarMotion();
   syncNavDockInert();
@@ -2670,20 +2800,52 @@ function setHashWithoutJump(hash) {
   updateActiveNav();
 }
 
-function restoreListPositionForReturn(targetLink, detailHash) {
-  const sourceMatchesCurrentDetail = currentOpenSource?.href === detailHash;
+/*
+  立即跳到某个滚动位置。<html> 设了 scroll-behavior: smooth，
+  直接 scrollTo 会变成平滑滚动；这里临时关掉，各浏览器行为一致。
+*/
+function jumpScrollTo(left, top) {
+  const html = document.documentElement;
+  const previous = html.style.scrollBehavior;
+  html.style.scrollBehavior = "auto";
+  window.scrollTo(left, top);
+  html.style.scrollBehavior = previous;
+}
 
-  if (sourceMatchesCurrentDetail) {
-    window.scrollTo({
-      left: currentOpenSource.scrollX,
-      top: currentOpenSource.scrollY,
-      behavior: "instant",
-    });
-    return;
+// 返回列表时应该停在哪里：点击来源记录的位置；直接打开详情 URL 时让卡片居中。
+function listReturnPosition(targetLink, detailHash) {
+  if (currentOpenSource?.href === detailHash) {
+    return { left: currentOpenSource.scrollX, top: currentOpenSource.scrollY };
   }
+  if (!targetLink?.isConnected) return null;
+  const rect = targetLink.getBoundingClientRect();
+  const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  return {
+    left: window.scrollX,
+    top: clampNumber(window.scrollY + rect.top + rect.height / 2 - window.innerHeight / 2, 0, maxScroll),
+  };
+}
 
-  // 只有直接打开详情 URL、没有点击来源记录时才用兜底定位。
-  targetLink.scrollIntoView({ behavior: "instant", block: "center", inline: "nearest" });
+function restoreListPositionForReturn(targetLink, detailHash) {
+  const position = listReturnPosition(targetLink, detailHash);
+  if (position) jumpScrollTo(position.left, position.top);
+}
+
+/*
+  退场期间把背后页面钉在返回位置上。
+  Safari 在 history.back() 回到 #notes 这类地址时，会按自己的规则滚到锚点或恢复旧位置，
+  时机还可能晚于 popstate。页面一动，卡片就不在阅读纸要缩回去的地方了。
+  阅读纸盖在上面，这些修正用户看不到。
+*/
+function holdScrollPosition(position) {
+  if (!position) return () => {};
+  const onScroll = () => {
+    if (Math.abs(window.scrollY - position.top) > 0.5 || Math.abs(window.scrollX - position.left) > 0.5) {
+      jumpScrollTo(position.left, position.top);
+    }
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  return () => window.removeEventListener("scroll", onScroll);
 }
 
 /* 阅读面板与遮罩同步退场，结束后再恢复列表和焦点。 */
@@ -2692,6 +2854,17 @@ async function animateReaderClose(backHref, detailHash = window.location.hash, {
   const reader = document.querySelector("#reader");
   const targetLink = findCurrentDetailLink(detailHash);
   isClosingReader = true;
+
+  /*
+    先把列表恢复到最终状态，再量卡片位置：
+    1. 解除页面的滚动锁（overflow: hidden）。有常驻滚动条的 Mac 上，滚动条回来会让页面变窄，
+       卡片的宽度和位置也跟着变；不先解除，阅读纸会缩到一个差了十几像素的矩形。
+    2. 跳回打开前的滚动位置，并在退场期间守住它（见 holdScrollPosition）。
+  */
+  document.body.classList.add("is-reader-returning");
+  const returnPosition = listReturnPosition(targetLink, detailHash);
+  if (returnPosition) jumpScrollTo(returnPosition.left, returnPosition.top);
+  const releaseScroll = holdScrollPosition(returnPosition);
 
   try {
     if (reader?.classList.contains("is-open")) {
@@ -2703,6 +2876,7 @@ async function animateReaderClose(backHref, detailHash = window.location.hash, {
       await animateReaderTransition(reader, false, { sourceLink: targetLink });
     }
   } finally {
+    releaseScroll();
     hideReader({ restoreFocus: false });
     // 关闭动画期间如果地址被切到了另一篇详情（前进/后退或快速操作），
     // 不要把它改回列表页，等清理完再按新地址打开。

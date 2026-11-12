@@ -2317,7 +2317,8 @@ h2 {
   z-index: 1;
 }
 
-body.is-reader-open,
+/* 退场时（is-reader-returning）提前解锁，让列表先回到最终布局，阅读纸才能准确缩回卡片。 */
+body.is-reader-open:not(.is-reader-returning),
 body.is-lightbox-open {
   overflow: hidden;
 }
