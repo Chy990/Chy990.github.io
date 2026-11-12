@@ -13,7 +13,7 @@
       content="Chen 的个人实验台：阅读笔记、项目仓库与旅行相册。"
     />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f4f1e8" />
+    <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Chen 的实验台" />
     <meta property="og:description" content="阅读笔记、项目仓库与旅行相册。" />
@@ -32,7 +32,7 @@
 
         var themeColor = document.querySelector('meta[name="theme-color"]');
         if (themeColor) {
-          themeColor.setAttribute("content", theme === "dark" ? "#14120f" : "#f4f1e8");
+          themeColor.setAttribute("content", theme === "dark" ? "#14120f" : "#ffffff");
         }
       })();
     </script>
@@ -41,14 +41,14 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261102-6" />
+    <link rel="stylesheet" href="./styles.css?v=20261112-2" />
 
     <!--
       首屏右侧每次随机挑选十项：相册照片和一篇笔记。
       清单和挑选脚本放在样式后面，既不挡 CSS 下载，又能在 hero 解析前
       把选中的缩略图预加载好。
     -->
-    <script src="./content/content-index.js?v=f58e4c5b1fa1"></script>
+    <script src="./content/content-index.js?v=4f9dafc21c84"></script>
     <script src="./hero-random.js?v=20261102-5"></script>
   </head>
   <body>
@@ -367,6 +367,6 @@
     </section>
 
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261031-1"></script>
+    <script src="./script.js?v=20261112-1"></script>
   </body>
 </html>

@@ -2,7 +2,7 @@
   styles.css — Chen 的实验台
   ------------------------------------------------------------------
   设计方向：纸上档案馆 × 液态玻璃。
-  - 暖纸底色 + 墨色文字 + 朱砂红唯一强调色
+  - 浅色：纯白底 + 浅灰瓷砖面板 + 墨色文字 + 朱砂红唯一强调色；深色仍是暖墨底
   - 苹果系统字体：SF Pro 做拉丁与数字，苹方（PingFang SC）做中文标题与正文
   - 用细规则线、编号、图版构成秩序；卡片与控件是半透明玻璃 + 大圆角
   - 浅色 / 深色两套变量；<html data-theme="light|dark">
@@ -18,24 +18,25 @@
 :root {
   color-scheme: light;
 
-  --paper: #f4f1e8;
-  --paper-2: #ebe6da;
-  --card: #fbf8f1;
+  /* 纯白底：页面是白纸，卡片 / 面板用极浅的中性灰“瓷砖”区分层次。 */
+  --paper: #ffffff;
+  --paper-2: #f3f3f5;
+  --card: #ffffff;
 
-  --ink: #17150f;
-  --ink-2: #37332b;
-  --muted: #615a4f;
-  --faint: #736b5d;
+  --ink: #16161a;
+  --ink-2: #34343a;
+  --muted: #5c5c65;
+  --faint: #6c6c75;
 
-  --rule: rgba(23, 21, 15, 0.14);
-  --rule-strong: rgba(23, 21, 15, 0.42);
+  --rule: rgba(22, 22, 30, 0.1);
+  --rule-strong: rgba(22, 22, 30, 0.3);
 
   --accent: #b4402a;
-  --accent-soft: rgba(180, 64, 42, 0.1);
-  --accent-ink: #fbf8f1;
+  --accent-soft: rgba(180, 64, 42, 0.08);
+  --accent-ink: #ffffff;
 
-  --shadow-photo: 0 28px 50px -24px rgba(46, 35, 24, 0.36);
-  --shadow-card: 0 20px 40px -30px rgba(46, 35, 24, 0.35);
+  --shadow-photo: 0 28px 50px -26px rgba(20, 22, 30, 0.26);
+  --shadow-card: 0 20px 40px -30px rgba(20, 22, 30, 0.24);
 
   --radius-xl: 30px;
   --radius-lg: 22px;
@@ -43,29 +44,38 @@
   --radius-sm: 12px;
   --radius-pill: 999px;
 
-  --glass: rgba(255, 251, 244, 0.42);
-  --glass-strong: rgba(255, 252, 247, 0.64);
-  --glass-border: rgba(255, 255, 255, 0.72);
+  /*
+    白底上“玻璃”不再靠透出暖色背景，而是：
+    --glass        = 默认面板，极浅灰瓷砖
+    --glass-strong = 悬停 / 页头，近白并略带透明，配合阴影浮起来
+    --glass-border = 极细的中性描边，让白上白也有边界
+  */
+  --glass: rgba(246, 246, 248, 0.82);
+  --glass-strong: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(22, 22, 30, 0.08);
   --glass-highlight:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 24px 60px -34px rgba(46, 35, 24, 0.5);
-  --nav-track-bg: rgba(23, 21, 15, 0.07);
-  --nav-lens-bg: linear-gradient(180deg, #fffefb, #f6efe3);
-  --nav-lens-border: rgba(23, 21, 15, 0.13);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(22, 22, 30, 0.02);
+  --glass-shadow: 0 20px 50px -32px rgba(20, 22, 30, 0.32);
+  --nav-track-bg: rgba(22, 22, 30, 0.05);
+  --nav-lens-bg: linear-gradient(180deg, #ffffff, #f7f7f9);
+  --nav-lens-border: rgba(22, 22, 30, 0.1);
   --nav-lens-shadow:
-    0 9px 18px -10px rgba(46, 35, 24, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    0 8px 16px -10px rgba(20, 22, 30, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
   --nav-lens-shadow-lift:
-    0 14px 24px -9px rgba(46, 35, 24, 0.55),
-    0 4px 9px -5px rgba(46, 35, 24, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98);
-  --reader-bg: rgba(247, 244, 236, 0.985);
-  --reader-scrim: rgba(23, 21, 15, 0.44);
+    0 14px 24px -10px rgba(20, 22, 30, 0.36),
+    0 4px 9px -5px rgba(20, 22, 30, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  --reader-bg: #ffffff;
+  /* 灰色面板里再嵌一层小卡片时用白色，避免灰上灰糊在一起。 */
+  --glass-nested: #ffffff;
+  --reader-scrim: rgba(22, 22, 30, 0.3);
   /* 阅读纸距离屏幕边缘的距离，底部导航条会跟着它一起对齐。 */
   --reader-inset: clamp(10px, 2vw, 22px);
-  --ambient-a: rgba(214, 148, 104, 0.18);
-  --ambient-b: rgba(96, 134, 146, 0.12);
+  /* 纯白底不铺环境光；深色模式仍保留。 */
+  --ambient-a: transparent;
+  --ambient-b: transparent;
   /* 环境光的三层渐变。抽成变量，方便在“跟随页面滚动”和“固定层”两种模式之间复用。 */
   --ambient-layers:
     radial-gradient(60vw 50vh at 4% -10%, var(--ambient-a), transparent 62%),
@@ -132,6 +142,7 @@
     0 4px 9px -5px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   --reader-bg: rgba(22, 20, 17, 0.985);
+  --glass-nested: var(--glass);
   --reader-scrim: rgba(0, 0, 0, 0.64);
   --ambient-a: rgba(196, 112, 70, 0.18);
   --ambient-b: rgba(72, 112, 128, 0.16);
@@ -175,6 +186,7 @@
       0 4px 9px -5px rgba(0, 0, 0, 0.55),
       inset 0 1px 0 rgba(255, 255, 255, 0.18);
     --reader-bg: rgba(22, 20, 17, 0.985);
+    --glass-nested: var(--glass);
     --reader-scrim: rgba(0, 0, 0, 0.64);
     --ambient-a: rgba(196, 112, 70, 0.18);
     --ambient-b: rgba(72, 112, 128, 0.16);
@@ -230,7 +242,8 @@ body::after {
   content: "";
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
   background-size: 180px 180px;
-  opacity: 0.03;
+  /* 纯白底不叠颗粒，免得白色发灰；深色模式仍保留印刷质感。 */
+  opacity: 0;
 }
 
 :root[data-theme="dark"] body::after {
@@ -655,7 +668,7 @@ body.nav-dock-ipad .nav-lens:not(.is-tracking) {
   border: 1px solid var(--rule);
   border-radius: 50%;
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(46, 35, 24, 0.7);
+  box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(20, 22, 30, 0.5);
   color: var(--ink-2);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
@@ -670,7 +683,7 @@ body.nav-dock-ipad .nav-lens:not(.is-tracking) {
 .github-link:hover {
   border-color: var(--ink);
   background: var(--ink);
-  box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(46, 35, 24, 0.6);
+  box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(20, 22, 30, 0.43);
   color: var(--paper);
   transform: translateY(-2px) scale(1.04);
 }
@@ -694,7 +707,7 @@ body.nav-dock-ipad .nav-lens:not(.is-tracking) {
   border: 1px solid var(--rule);
   border-radius: 50%;
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(46, 35, 24, 0.7);
+  box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(20, 22, 30, 0.5);
   cursor: pointer;
   transition:
     color 220ms ease,
@@ -707,7 +720,7 @@ body.nav-dock-ipad .nav-lens:not(.is-tracking) {
 .theme-toggle:hover {
   border-color: var(--ink);
   background: var(--ink);
-  box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(46, 35, 24, 0.6);
+  box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(20, 22, 30, 0.43);
   color: var(--paper);
   transform: rotate(-12deg) scale(1.06);
 }
@@ -992,7 +1005,7 @@ h1 em {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass);
-  box-shadow: var(--glass-highlight), 0 12px 28px -24px rgba(46, 35, 24, 0.55);
+  box-shadow: var(--glass-highlight), 0 12px 28px -24px rgba(20, 22, 30, 0.4);
   color: var(--ink);
   font-size: 14px;
   letter-spacing: 0.04em;
@@ -1027,7 +1040,7 @@ h1 em {
 .button:hover {
   border-color: var(--glass-border);
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 18px 34px -24px rgba(46, 35, 24, 0.6);
+  box-shadow: var(--glass-highlight), 0 18px 34px -24px rgba(20, 22, 30, 0.43);
   color: var(--ink);
   transform: translateY(-2px) scale(1.02);
 }
@@ -1147,12 +1160,12 @@ h1 em {
 }
 
 .hero-plate--main:hover {
-  box-shadow: var(--glass-highlight), 0 36px 68px -26px rgba(46, 35, 24, 0.5);
+  box-shadow: var(--glass-highlight), 0 36px 68px -26px rgba(20, 22, 30, 0.36);
   transform: rotate(0.7deg) translateY(-8px) scale(1.03);
 }
 
 .hero-plate--sub:hover {
-  box-shadow: var(--glass-highlight), 0 36px 68px -26px rgba(46, 35, 24, 0.5);
+  box-shadow: var(--glass-highlight), 0 36px 68px -26px rgba(20, 22, 30, 0.36);
   transform: rotate(-1.2deg) translateY(-6px) scale(1.04);
 }
 
@@ -1177,7 +1190,7 @@ h1 em {
 }
 
 .journal-card:hover {
-  box-shadow: var(--glass-highlight), 0 34px 64px -26px rgba(46, 35, 24, 0.5);
+  box-shadow: var(--glass-highlight), 0 34px 64px -26px rgba(20, 22, 30, 0.36);
   transform: rotate(0deg) translateY(-6px) scale(1.025);
 }
 
@@ -1301,7 +1314,7 @@ h2 {
 
 .note-filters button:hover {
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 12px 24px -22px rgba(46, 35, 24, 0.6);
+  box-shadow: var(--glass-highlight), 0 12px 24px -22px rgba(20, 22, 30, 0.43);
   color: var(--ink);
   transform: translateY(-1px);
 }
@@ -1355,7 +1368,7 @@ h2 {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background: var(--glass);
-  box-shadow: var(--glass-highlight), 0 14px 36px -32px rgba(46, 35, 24, 0.55);
+  box-shadow: var(--glass-highlight), 0 14px 36px -32px rgba(20, 22, 30, 0.4);
   transition:
     transform 380ms var(--ease-spring),
     background-color 280ms ease,
@@ -1440,7 +1453,7 @@ h2 {
 .note-grid .content-link:focus-visible .note-card {
   border-color: var(--glass-border);
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 28px 54px -34px rgba(46, 35, 24, 0.6);
+  box-shadow: var(--glass-highlight), 0 28px 54px -34px rgba(20, 22, 30, 0.43);
   transform: translateY(-3px) scale(1.004);
 }
 
@@ -1492,7 +1505,7 @@ h2 {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   background: var(--glass);
-  box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(46, 35, 24, 0.6);
+  box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(20, 22, 30, 0.43);
   counter-increment: repo;
   transition:
     transform 380ms var(--ease-spring),
@@ -1555,7 +1568,7 @@ h2 {
 .repo-grid .content-link:focus-visible .repo-card {
   border-color: var(--glass-border);
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(46, 35, 24, 0.65);
+  box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
   transform: translateY(-5px) scale(1.006);
 }
 
@@ -1655,7 +1668,7 @@ h2 {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   background: var(--glass);
-  box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(46, 35, 24, 0.55);
+  box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(20, 22, 30, 0.4);
   transition:
     transform 400ms var(--ease-spring),
     background-color 280ms ease,
@@ -1792,7 +1805,7 @@ h2 {
 .gallery-grid .content-link:focus-visible .gallery-item figure {
   border-color: var(--glass-border);
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 32px 64px -38px rgba(46, 35, 24, 0.65);
+  box-shadow: var(--glass-highlight), 0 32px 64px -38px rgba(20, 22, 30, 0.47);
   transform: translateY(-5px) scale(1.004);
 }
 
@@ -1857,7 +1870,7 @@ h2 {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   background: var(--glass);
-  box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(46, 35, 24, 0.55);
+  box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(20, 22, 30, 0.4);
   transition:
     transform 380ms var(--ease-spring),
     background-color 280ms ease,
@@ -1910,7 +1923,7 @@ h2 {
 .update-grid .content-link:focus-visible .update-card {
   border-color: var(--glass-border);
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(46, 35, 24, 0.65);
+  box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
   transform: translateY(-5px) scale(1.004);
 }
 
@@ -1973,7 +1986,7 @@ h2 {
   padding: 16px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--glass);
+  background: var(--glass-nested, var(--glass));
   box-shadow: var(--glass-highlight);
 }
 
@@ -2208,7 +2221,7 @@ body.is-reader-open .reader-scrim {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--reader-bg);
-  box-shadow: var(--glass-highlight), 0 16px 36px -28px rgba(46, 35, 24, 0.6);
+  box-shadow: var(--glass-highlight), 0 16px 36px -28px rgba(20, 22, 30, 0.43);
 }
 
 .reader-back {
@@ -2461,7 +2474,7 @@ body.is-reader-open .reader-scrim {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background: var(--glass);
-  box-shadow: var(--glass-highlight), 0 18px 40px -32px rgba(46, 35, 24, 0.55);
+  box-shadow: var(--glass-highlight), 0 18px 40px -32px rgba(20, 22, 30, 0.4);
 }
 
 .reader-photo.is-portrait {
@@ -3260,7 +3273,7 @@ body.nav-docked .nav-dock .primary-nav {
   background: var(--reader-bg);
   box-shadow:
     var(--glass-highlight),
-    0 22px 46px -24px rgba(46, 35, 24, 0.62);
+    0 22px 46px -24px rgba(20, 22, 30, 0.45);
 }
 
 body.nav-docked .nav-dock .primary-nav a {
@@ -3322,7 +3335,7 @@ body.nav-docked .reader-bar {
   margin: 0 auto;
   box-shadow:
     var(--glass-highlight),
-    0 22px 46px -22px rgba(46, 35, 24, 0.68);
+    0 22px 46px -22px rgba(20, 22, 30, 0.49);
 }
 
 /* 详情页关闭后，导航条完全隐藏，把位置还给底部主导航。 */
@@ -3524,7 +3537,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
 .hero-visual .hero-plate:hover, .hero-visual .journal-card:hover,
 .hero-visual .hero-plate.is-front, .hero-visual .journal-card.is-front { z-index: 10; }
 .hero-plate--extra:hover {
-  box-shadow: var(--glass-highlight), 0 36px 68px -26px rgba(46, 35, 24, 0.5);
+  box-shadow: var(--glass-highlight), 0 36px 68px -26px rgba(20, 22, 30, 0.36);
   transform: rotate(0deg) translateY(-6px) scale(1.04);
 }
 .hero-visual .hero-plate--extra + .hero-plate--extra:hover {
@@ -3541,9 +3554,9 @@ body.nav-docked.nav-dock-ipad .reader-bar {
 .profile-social-label { color: var(--faint); font-family: var(--font-mono); font-size: 9px; letter-spacing: .13em; }
 .profile-social-label span { padding: 0 3px; color: var(--accent); }
 .profile-social-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.profile-social-links a { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--rule); border-radius: 50%; background: var(--glass-strong); box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(46, 35, 24, .7); color: var(--ink-2); text-decoration: none; -webkit-tap-highlight-color: transparent; transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 320ms var(--ease-spring), box-shadow 220ms ease; }
+.profile-social-links a { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--rule); border-radius: 50%; background: var(--glass-strong); box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(20, 22, 30, 0.5); color: var(--ink-2); text-decoration: none; -webkit-tap-highlight-color: transparent; transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 320ms var(--ease-spring), box-shadow 220ms ease; }
 .profile-social-links a svg { width: 19px; height: 19px; }
-.profile-social-links a:hover, .profile-social-links a:focus-visible { border-color: var(--ink); background: var(--ink); box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(46, 35, 24, .6); color: var(--paper); transform: translateY(-2px) scale(1.04); }
+.profile-social-links a:hover, .profile-social-links a:focus-visible { border-color: var(--ink); background: var(--ink); box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(20, 22, 30, 0.43); color: var(--paper); transform: translateY(-2px) scale(1.04); }
 .profile-social-links a:active { transform: scale(.92); }
 @media (max-width: 600px) { .profile-social { gap: 12px; padding-top: 18px; } .profile-social-links { width: 100%; } }
 
@@ -3566,7 +3579,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   --orbit-perspective: 2000px;
   --orbit-origin-y: 210px;
   --mark-size: 64px;
-  --orbit-shadow: rgba(46, 35, 24, 0.3);
+  --orbit-shadow: rgba(20, 22, 30, 0.22);
   --orbit-fade: 30%;
   position: relative;
   height: 500px;
@@ -3691,7 +3704,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background: var(--card);
-  box-shadow: var(--glass-highlight), 0 18px 36px -28px rgba(46, 35, 24, 0.5);
+  box-shadow: var(--glass-highlight), 0 18px 36px -28px rgba(20, 22, 30, 0.36);
   transition: box-shadow 320ms;
 }
 /* 越偏离正前方，越蒙上一层纸色，像空气透视一样往后退。 */
@@ -3707,7 +3720,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   will-change: opacity;
 }
 .orbit-card.is-current .orbit-face--front {
-  box-shadow: var(--glass-highlight), 0 34px 60px -30px rgba(46, 35, 24, 0.62);
+  box-shadow: var(--glass-highlight), 0 34px 60px -30px rgba(20, 22, 30, 0.45);
 }
 .orbit-face--photo {
   display: flex;

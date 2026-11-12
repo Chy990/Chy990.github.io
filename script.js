@@ -250,7 +250,7 @@ function setupThemeToggle() {
     button.setAttribute("aria-pressed", String(isDark));
     button.setAttribute("aria-label", label);
     button.setAttribute("title", label);
-    if (themeColor) themeColor.setAttribute("content", isDark ? "#14120f" : "#f4f1e8");
+    if (themeColor) themeColor.setAttribute("content", isDark ? "#14120f" : "#ffffff");
   };
 
   const applySystemTheme = () => {
