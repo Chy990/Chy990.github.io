@@ -104,12 +104,6 @@ function detectIPad() {
 }
 
 const isIPadDevice = detectIPad();
-/*
-  iPad / iPhone 上的 Safari（以及所有 iOS 浏览器）默认把网页自己驱动的动画限制在约 60fps，
-  只有系统原生滚动能跑满 ProMotion 的 120Hz。所以菜单跳转在这些设备上交给原生平滑滚动，
-  Mac 上的 Safari 没有这个限制，继续用 flipScrollTo 的慢起慢停过渡。
-*/
-const isAppleTouchDevice = isIPadDevice || /iPhone|iPod/.test(navigator.userAgent || "");
 const narrowNavQuery = window.matchMedia("(max-width: 640px)");
 const touchNavQuery = window.matchMedia("(hover: none) and (pointer: coarse)");
 const wideTouchQuery = window.matchMedia("(max-width: 900px)");
@@ -1129,7 +1123,12 @@ function scrollToSectionSmoothly(section) {
   idleTimer = window.setTimeout(finish, 400);
   safetyTimer = window.setTimeout(finish, 2500);
 
-  if (isWebKitEngine && !isAppleTouchDevice) {
+  /*
+    WebKit（Mac Safari、iPad、iPhone）都用 flipScrollTo 的慢起慢停过渡。
+    iPad / iPhone 上原生平滑滚动帧率更高（可到 120Hz），但速度由系统决定、明显偏快；
+    这里选择和 Mac、Chrome 一致的手感。iOS Safari 默认会把网页动画限制在约 60fps。
+  */
+  if (isWebKitEngine) {
     // 自己驱动滚动时，滚动事件会一直触发；结束由补间自己通知，不靠“停了多久”判断。
     window.removeEventListener("scroll", onScroll);
     window.removeEventListener("scrollend", finish);
@@ -1168,7 +1167,7 @@ function navigateNavLink(link) {
 
   cancelNavScrollAnimation();
 
-  if (isWebKitEngine && !isAppleTouchDevice && !prefersReducedMotion()) {
+  if (isWebKitEngine && !prefersReducedMotion()) {
     // 和 scrollIntoView({ block: "start" }) 落点一致：尊重 CSS 里的 scroll-margin-top。
     const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
     let cleanupTween = null;
