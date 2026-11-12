@@ -1434,12 +1434,19 @@ async function readText(path) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) throw new Error(`Cannot load ${path}`);
+      if (!response.ok) {
+        const error = new Error(`Cannot load ${path}`);
+        error.status = response.status;
+        // 404 说明文件确实不存在，重试也没用，直接交给上层处理。
+        if (response.status === 404) attempt = 3;
+        throw error;
+      }
       const text = await response.text();
       textFileCache.set(path, text);
       return text;
     } catch (error) {
       lastError = error;
+      if (attempt >= 3) break;
       await new Promise((resolve) => window.setTimeout(resolve, 120 * (attempt + 1)));
     }
   }
@@ -1447,12 +1454,29 @@ async function readText(path) {
   throw lastError;
 }
 
+/*
+  清单里有、但服务器上没有 .md 源文件（404）的内容。
+  常见情况：本地写好了笔记、清单已经生成，但正文还没提交。
+  这类条目按“即将更新”展示，而不是报读取失败。
+*/
+const missingTextFiles = new Set();
+
+function isMissingText(path) {
+  return missingTextFiles.has(path);
+}
+
+const UPCOMING_NOTE_TEXT = "这可能是一篇即将更新的笔记，正文还在路上，过几天再来看看吧。";
+
 // 单个文件失败时不让整个栏目失败：返回空字符串，卡片仍然显示标题和日期。
 async function readTextSafe(path) {
   try {
     return await readText(path);
   } catch (error) {
-    console.warn(`读取失败：${path}`, error);
+    if (error && error.status === 404) {
+      missingTextFiles.add(path);
+    } else {
+      console.warn(`读取失败：${path}`, error);
+    }
     return "";
   }
 }
@@ -1576,18 +1600,24 @@ async function renderNoteCards(entries) {
   const container = document.querySelector(".note-grid");
   const cards = await Promise.all(
     entries.map(async (entry) => {
-      const markdown = await readTextSafe(`./content/notes/${entry.file}`);
+      const path = `./content/notes/${entry.file}`;
+      const markdown = await readTextSafe(path);
+      const upcoming = isMissingText(path);
       const minutes = readingMinutes(markdown);
       return `
-        <a class="content-link" href="${detailHref("note", entry.file)}" data-reveal>
+        <a class="content-link${upcoming ? " is-upcoming" : ""}" href="${detailHref("note", entry.file)}" data-reveal>
           <article class="note-card">
             <h3>${escapeHtml(entry.title)}</h3>
             <p class="card-meta">
               <span class="meta-date">${escapeHtml(entry.date)}</span>
               ${entry.type ? `<span class="meta-type">${escapeHtml(entry.type)}</span>` : ""}
-              <span class="meta-time">约 ${minutes} 分钟</span>
+              ${upcoming
+                ? `<span class="meta-time meta-upcoming">即将更新</span>`
+                : `<span class="meta-time">约 ${minutes} 分钟</span>`}
             </p>
-            <div class="content-preview">${markdownToPreview(stripFirstHeading(markdown), 4)}</div>
+            <div class="content-preview">${upcoming
+              ? `<p>${UPCOMING_NOTE_TEXT}</p>`
+              : markdownToPreview(stripFirstHeading(markdown), 4)}</div>
           </article>
         </a>
       `;
@@ -2105,14 +2135,20 @@ async function openMarkdownDetail(kind, file, isCurrent = () => true) {
   if (!entry) return false;
 
   const folder = isNote ? "notes" : isUpdate ? "updates" : "repos";
-  const markdown = await readTextSafe(`./content/${folder}/${file}`);
+  const path = `./content/${folder}/${file}`;
+  const markdown = await readTextSafe(path);
+  const upcoming = isMissingText(path);
   const body = markdown
     ? markdownToHtml(stripFirstHeading(markdown))
-    : "<p>内容暂时无法读取，请刷新页面或重新运行 start-blog.command。</p>";
+    : upcoming
+      ? `<p class="reader-upcoming">${isNote ? UPCOMING_NOTE_TEXT : "这篇内容即将更新，正文还在路上，过几天再来看看吧。"}</p>`
+      : "<p>内容暂时无法读取，请刷新页面或重新运行 start-blog.command。</p>";
 
   let meta = "";
   if (isNote) {
-    meta = `${entry.date} · ${entry.type} · 约 ${readingMinutes(markdown)} 分钟`;
+    meta = upcoming
+      ? `${entry.date} · ${entry.type} · 即将更新`
+      : `${entry.date} · ${entry.type} · 约 ${readingMinutes(markdown)} 分钟`;
   } else if (isUpdate) {
     meta = `${UPDATE_TYPE_LABELS[entry.type] || entry.type} · 更新日志`;
   } else {

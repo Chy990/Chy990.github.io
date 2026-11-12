@@ -1430,6 +1430,39 @@ h2 {
   letter-spacing: 0.04em;
 }
 
+/* 清单里有、但正文还没上传的笔记：小药丸标记“即将更新”，摘要换成提示语。 */
+.meta-upcoming {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.meta-upcoming::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.is-upcoming .note-card .content-preview {
+  font-style: italic;
+}
+
+.reader-upcoming {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .note-card .content-preview {
   grid-area: preview;
   color: var(--muted);
