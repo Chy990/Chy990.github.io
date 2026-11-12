@@ -282,6 +282,11 @@ body::after {
   outline-offset: 3px;
 }
 
+/* 关闭详情后焦点回到卡片：鼠标 / 触摸操作时保留焦点位置，但不画描边（见 script.js restoreFocusTo）。 */
+.is-quiet-focus:focus-visible {
+  outline: none;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -1482,12 +1487,20 @@ h2 {
   display: none;
 }
 
-.note-grid .content-link:hover .note-card,
-.note-grid .content-link:focus-visible .note-card {
+.note-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .note-card {
   border-color: var(--glass-border);
   background: var(--glass-strong);
   box-shadow: var(--glass-highlight), 0 28px 54px -34px rgba(20, 22, 30, 0.43);
   transform: translateY(-3px) scale(1.004);
+}
+
+@media (hover: hover) {
+  .note-grid .content-link:hover .note-card {
+    border-color: var(--glass-border);
+    background: var(--glass-strong);
+    box-shadow: var(--glass-highlight), 0 28px 54px -34px rgba(20, 22, 30, 0.43);
+    transform: translateY(-3px) scale(1.004);
+  }
 }
 
 .note-grid .content-link:active .note-card {
@@ -1497,15 +1510,26 @@ h2 {
   transition-duration: 120ms;
 }
 
-.note-grid .content-link:hover .note-card::after,
-.note-grid .content-link:focus-visible .note-card::after {
+.note-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .note-card::after {
   color: var(--accent);
   transform: translate(4px, -4px);
 }
 
-.note-grid .content-link:hover .note-card h3,
-.note-grid .content-link:focus-visible .note-card h3 {
+@media (hover: hover) {
+  .note-grid .content-link:hover .note-card::after {
+    color: var(--accent);
+    transform: translate(4px, -4px);
+  }
+}
+
+.note-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .note-card h3 {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .note-grid .content-link:hover .note-card h3 {
+    color: var(--accent);
+  }
 }
 
 /* ================================================================
@@ -1597,12 +1621,20 @@ h2 {
   display: none;
 }
 
-.repo-grid .content-link:hover .repo-card,
-.repo-grid .content-link:focus-visible .repo-card {
+.repo-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .repo-card {
   border-color: var(--glass-border);
   background: var(--glass-strong);
   box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
   transform: translateY(-5px) scale(1.006);
+}
+
+@media (hover: hover) {
+  .repo-grid .content-link:hover .repo-card {
+    border-color: var(--glass-border);
+    background: var(--glass-strong);
+    box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
+    transform: translateY(-5px) scale(1.006);
+  }
 }
 
 .repo-grid .content-link:active .repo-card {
@@ -1612,9 +1644,14 @@ h2 {
   transition-duration: 120ms;
 }
 
-.repo-grid .content-link:hover .repo-card h3,
-.repo-grid .content-link:focus-visible .repo-card h3 {
+.repo-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .repo-card h3 {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .repo-grid .content-link:hover .repo-card h3 {
+    color: var(--accent);
+  }
 }
 
 /* 卡片底部的小入口，用来把留白收住，也提示整张卡片可点击。 */
@@ -1641,12 +1678,20 @@ h2 {
     color 220ms ease;
 }
 
-.content-link:hover .card-cta,
-.content-link:focus-visible .card-cta {
+.content-link:focus-visible:where(:not(.is-quiet-focus)) .card-cta {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--paper);
   transform: translateY(-1px);
+}
+
+@media (hover: hover) {
+  .content-link:hover .card-cta {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    transform: translateY(-1px);
+  }
 }
 
 /* ================================================================
@@ -1834,12 +1879,20 @@ h2 {
     color 220ms ease;
 }
 
-.gallery-grid .content-link:hover .gallery-item figure,
-.gallery-grid .content-link:focus-visible .gallery-item figure {
+.gallery-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .gallery-item figure {
   border-color: var(--glass-border);
   background: var(--glass-strong);
   box-shadow: var(--glass-highlight), 0 32px 64px -38px rgba(20, 22, 30, 0.47);
   transform: translateY(-5px) scale(1.004);
+}
+
+@media (hover: hover) {
+  .gallery-grid .content-link:hover .gallery-item figure {
+    border-color: var(--glass-border);
+    background: var(--glass-strong);
+    box-shadow: var(--glass-highlight), 0 32px 64px -38px rgba(20, 22, 30, 0.47);
+    transform: translateY(-5px) scale(1.004);
+  }
 }
 
 .gallery-grid .content-link:active .gallery-item figure {
@@ -1849,21 +1902,38 @@ h2 {
   transition-duration: 120ms;
 }
 
-.gallery-grid .content-link:hover .gallery-cta,
-.gallery-grid .content-link:focus-visible .gallery-cta {
+.gallery-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .gallery-cta {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--paper);
 }
 
-.gallery-grid .content-link:hover .gallery-item img,
-.gallery-grid .content-link:focus-visible .gallery-item img {
+@media (hover: hover) {
+  .gallery-grid .content-link:hover .gallery-cta {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+  }
+}
+
+.gallery-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .gallery-item img {
   transform: scale(1.025);
 }
 
-.gallery-grid .content-link:hover .gallery-item figcaption strong,
-.gallery-grid .content-link:focus-visible .gallery-item figcaption strong {
+@media (hover: hover) {
+  .gallery-grid .content-link:hover .gallery-item img {
+    transform: scale(1.025);
+  }
+}
+
+.gallery-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .gallery-item figcaption strong {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .gallery-grid .content-link:hover .gallery-item figcaption strong {
+    color: var(--accent);
+  }
 }
 
 /* ================================================================
@@ -1952,12 +2022,20 @@ h2 {
   margin-top: 0;
 }
 
-.update-grid .content-link:hover .update-card,
-.update-grid .content-link:focus-visible .update-card {
+.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card {
   border-color: var(--glass-border);
   background: var(--glass-strong);
   box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
   transform: translateY(-5px) scale(1.004);
+}
+
+@media (hover: hover) {
+  .update-grid .content-link:hover .update-card {
+    border-color: var(--glass-border);
+    background: var(--glass-strong);
+    box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
+    transform: translateY(-5px) scale(1.004);
+  }
 }
 
 .update-grid .content-link:active .update-card {
@@ -1967,9 +2045,14 @@ h2 {
   transition-duration: 120ms;
 }
 
-.update-grid .content-link:hover .update-card h3,
-.update-grid .content-link:focus-visible .update-card h3 {
+.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card h3 {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .update-grid .content-link:hover .update-card h3 {
+    color: var(--accent);
+  }
 }
 
 /* 个人介绍：整页的版权页。 */
@@ -2135,6 +2218,19 @@ h2 {
 .reader-section.is-open {
   visibility: visible;
   pointer-events: auto;
+}
+
+/*
+  Safari（含 iPad 上所有浏览器）：提前把阅读层和遮罩提升成独立的合成层。
+  否则 WebKit 会在打开动画的第一帧才临时建层、栅格化整块全屏阅读纸，开头明显顿一下。
+  阅读层平时是 visibility: hidden，不会被绘制，这个层几乎没有额外开销。
+*/
+.is-webkit .reader-section {
+  will-change: transform, opacity;
+}
+
+.is-webkit .reader-scrim {
+  will-change: opacity;
 }
 
 /* ================================================================
@@ -2551,7 +2647,7 @@ body.is-reader-open .reader-scrim {
   cursor: zoom-in;
 }
 
-.reader-photo-button:focus-visible {
+.reader-photo-button:focus-visible:where(:not(.is-quiet-focus)) {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
@@ -3507,8 +3603,16 @@ body.nav-docked.nav-dock-ipad .reader-bar {
 .gallery-item figcaption strong { font-size: clamp(20px, 1.8vw, 25px); }
 .gallery-item figcaption small { -webkit-line-clamp: 2; }
 .gallery-cta { margin-top: 10px; }
-.gallery-grid .gallery-item:hover figure, .gallery-grid .gallery-item:focus-visible figure { background: var(--glass-strong); transform: translateY(-4px); }
-.gallery-grid .gallery-item:hover img, .gallery-grid .gallery-item:focus-visible img { transform: scale(1.025); }
+.gallery-grid .gallery-item:focus-visible:where(:not(.is-quiet-focus)) figure { background: var(--glass-strong); transform: translateY(-4px); }
+
+@media (hover: hover) {
+  .gallery-grid .gallery-item:hover figure { background: var(--glass-strong); transform: translateY(-4px); }
+}
+.gallery-grid .gallery-item:focus-visible:where(:not(.is-quiet-focus)) img { transform: scale(1.025); }
+
+@media (hover: hover) {
+  .gallery-grid .gallery-item:hover img { transform: scale(1.025); }
+}
 @media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) {
   .gallery-toolbar { align-items: stretch; flex-direction: column; gap: 12px; }

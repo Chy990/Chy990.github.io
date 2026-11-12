@@ -58,6 +58,41 @@ function prefersReducedMotion() {
 }
 
 /*
+  渲染引擎：Chromium（Chrome / Edge / 安卓）和 WebKit（Safari / 所有 iOS、iPadOS 浏览器）
+  在合成层上的表现不一样。几处只为 Chromium 准备的“重绘兜底”在 Safari 里反而会
+  造成整篇正文重新栅格化、动画结尾卡一下，所以按引擎区分。
+*/
+const userAgent = navigator.userAgent || "";
+const isChromiumEngine = /\b(Chrome|Chromium|Edg)\//.test(userAgent);
+const isWebKitEngine = !isChromiumEngine && /AppleWebKit/.test(userAgent);
+if (isWebKitEngine) document.documentElement.classList.add("is-webkit");
+
+/*
+  记录最近一次是键盘还是指针（鼠标 / 触摸 / 触控板）操作。
+  关闭详情时会把焦点还给原来的卡片：键盘用户需要看到焦点框；
+  鼠标 / 触摸用户则不该看到 —— Safari 会把脚本 focus() 一律当作键盘焦点，
+  导致上一次打开的卡片一直挂着强调色描边。
+*/
+let lastInputWasKeyboard = false;
+document.addEventListener("keydown", (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  lastInputWasKeyboard = true;
+}, true);
+document.addEventListener("pointerdown", () => {
+  lastInputWasKeyboard = false;
+}, true);
+
+// 把焦点还给卡片 / 按钮。指针操作时用“安静焦点”：焦点位置保留（Tab 会从这里继续），但不画焦点样式。
+function restoreFocusTo(element) {
+  if (!element?.isConnected) return;
+  if (!lastInputWasKeyboard) {
+    element.classList.add("is-quiet-focus");
+    element.addEventListener("blur", () => element.classList.remove("is-quiet-focus"), { once: true });
+  }
+  element.focus({ preventScroll: true });
+}
+
+/*
   手机端把主导航放到底部，iPad 再把它固定到左下角；桌面端完全不变。
   这里优先看设备类型，而不是只依赖宽度，避免 iPad 横屏时又跑回顶部。
 */
@@ -1857,6 +1892,8 @@ function forceReaderPainted(reader) {
 }
 
 function refreshReaderPanel(reader) {
+  // 只有 Chromium 需要；在 Safari 里这一步会让整篇正文重新栅格化，动画结尾明显顿一下。
+  if (!isChromiumEngine) return;
   const panel = reader.querySelector(".reader-panel");
   if (!panel) return;
   // 动画结束后用同一帧的零位移 transform 重新栅格化正文层，
@@ -1947,17 +1984,31 @@ function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
   reader.classList.add("is-open");
   reader.setAttribute("aria-hidden", "false");
   reader.inert = false;
-  if (pageShell) pageShell.inert = true;
   document.title = `${title} — ${BASE_TITLE}`;
   reader.scrollTop = 0;
   updateReaderProgress();
 
-  // 把焦点交给标题，屏幕阅读器会先读出文章名；关闭时再回到原来的卡片。
   const titleElement = reader.querySelector(".reader-title");
   titleElement.setAttribute("tabindex", "-1");
-  requestAnimationFrame(() => titleElement.focus({ preventScroll: true }));
 
-  if (!wasOpen) animateReaderTransition(reader, true, { sourceLink, sourceRect });
+  /*
+    锁定背后页面（inert）和把焦点交给标题，都放到入场动画结束后再做。
+    给整页设置 inert 会让浏览器重算整棵 DOM 的样式和无障碍树，
+    在 Safari 里正好压在动画第一帧上，是“打开不丝滑”的主要来源之一。
+    动画只有不到半秒，这段时间里遮罩本身已经挡住了背后页面的点击。
+  */
+  const finishOpening = () => {
+    if (!isReaderOpen() || isClosingReader) return;
+    if (pageShell) pageShell.inert = true;
+    // 把焦点交给标题，屏幕阅读器会先读出文章名；关闭时再回到原来的卡片。
+    if (document.activeElement !== titleElement) titleElement.focus({ preventScroll: true });
+  };
+
+  if (!wasOpen) {
+    animateReaderTransition(reader, true, { sourceLink, sourceRect }).finally(finishOpening);
+  } else {
+    finishOpening();
+  }
   scheduleReaderDisplayCheck(reader);
 }
 
@@ -1981,7 +2032,7 @@ function hideReader({ restoreFocus = true } = {}) {
   document.title = BASE_TITLE;
 
   if (restoreFocus && returnLink) {
-    requestAnimationFrame(() => returnLink.focus({ preventScroll: true }));
+    requestAnimationFrame(() => restoreFocusTo(returnLink));
   }
 }
 
@@ -2098,7 +2149,7 @@ function closeImageLightbox({ immediate = false } = {}) {
     session.image.removeAttribute("src");
     session.image.alt = "";
     imageLightboxSession = null;
-    if (!immediate && session.sourceButton?.isConnected) session.sourceButton.focus({ preventScroll: true });
+    if (!immediate && session.sourceButton?.isConnected) restoreFocusTo(session.sourceButton);
   };
 
   session.closing = true;
@@ -2670,7 +2721,7 @@ async function animateReaderClose(backHref, detailHash = window.location.hash, {
     if (pendingDetail) {
       queueMicrotask(handleRoute);
     } else if (targetLink?.isConnected) {
-      targetLink.focus({ preventScroll: true });
+      restoreFocusTo(targetLink);
     }
   }
 }
