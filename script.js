@@ -104,6 +104,12 @@ function detectIPad() {
 }
 
 const isIPadDevice = detectIPad();
+/*
+  iPad / iPhone 上的 Safari（以及所有 iOS 浏览器）默认把网页自己驱动的动画限制在约 60fps，
+  只有系统原生滚动能跑满 ProMotion 的 120Hz。所以菜单跳转在这些设备上交给原生平滑滚动，
+  Mac 上的 Safari 没有这个限制，继续用 flipScrollTo 的慢起慢停过渡。
+*/
+const isAppleTouchDevice = isIPadDevice || /iPhone|iPod/.test(navigator.userAgent || "");
 const narrowNavQuery = window.matchMedia("(max-width: 640px)");
 const touchNavQuery = window.matchMedia("(hover: none) and (pointer: coarse)");
 const wideTouchQuery = window.matchMedia("(max-width: 900px)");
@@ -997,7 +1003,8 @@ function revealRangeForFlip(fromY, toY) {
     const rect = element.getBoundingClientRect();
     const elementTop = rect.top + window.scrollY;
     if (elementTop + rect.height >= top && elementTop <= bottom) {
-      element.classList.add("is-visible");
+      // 掠过的卡片直接显示、不播入场渐显：几十个 0.88 秒的过渡和滑动同时跑，会拖慢合成。
+      element.classList.add("is-flip-revealed", "is-visible");
       revealObserver.unobserve(element);
     }
   });
@@ -1122,7 +1129,7 @@ function scrollToSectionSmoothly(section) {
   idleTimer = window.setTimeout(finish, 400);
   safetyTimer = window.setTimeout(finish, 2500);
 
-  if (isWebKitEngine) {
+  if (isWebKitEngine && !isAppleTouchDevice) {
     // 自己驱动滚动时，滚动事件会一直触发；结束由补间自己通知，不靠“停了多久”判断。
     window.removeEventListener("scroll", onScroll);
     window.removeEventListener("scrollend", finish);
@@ -1161,7 +1168,7 @@ function navigateNavLink(link) {
 
   cancelNavScrollAnimation();
 
-  if (isWebKitEngine && !prefersReducedMotion()) {
+  if (isWebKitEngine && !isAppleTouchDevice && !prefersReducedMotion()) {
     // 和 scrollIntoView({ block: "start" }) 落点一致：尊重 CSS 里的 scroll-margin-top。
     const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
     let cleanupTween = null;

@@ -2768,6 +2768,11 @@ body.is-reader-open .reader-scrim {
   transform: translateY(0);
 }
 
+/* 菜单跳转时被“掠过”的卡片直接显示，不和滑动动画抢合成资源（见 script.js revealRangeForFlip）。 */
+.js [data-reveal].is-flip-revealed {
+  transition: none;
+}
+
 /* ================================================================
    16. 响应式
    ================================================================ */
