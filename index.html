@@ -41,7 +41,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261112-6" />
+    <link rel="stylesheet" href="./styles.css?v=20261113-6" />
 
     <!--
       首屏右侧每次随机挑选十项：相册照片和一篇笔记。
@@ -84,7 +84,6 @@
           <a href="#notes" data-nav>笔记</a>
           <a href="#repos" data-nav>仓库</a>
           <a href="#gallery" data-nav>相册</a>
-          <a href="#updates" data-nav>更新</a>
           <a href="#profile" data-nav>个人</a>
         </nav>
 
@@ -268,25 +267,13 @@
         </section>
 
         <div class="bottom-layout">
-          <!-- 最近更新：内容更新历史与模板更新历史。 -->
-          <section id="updates" class="updates-section bottom-pane">
-            <div class="section-heading" data-reveal>
-              <span class="section-index" aria-hidden="true">04</span>
-              <h2>最近更新</h2>
-              <p class="eyebrow">
-                <span>Updates</span>
-                <span class="section-count" data-section-count="updates">—</span>
-              </p>
-            </div>
-            <div class="update-grid">
-              <div class="loading-row" data-reveal>正在读取更新历史…</div>
-            </div>
-          </section>
-
-          <!-- 个人：作为整页的版权页 / 自我介绍收尾。 -->
+          <!--
+            个人：作为整页的版权页 / 自我介绍收尾。
+            “近期更新”不再单独成栏，以两个小模块的形式放在统计数字下面。
+          -->
           <section id="profile" class="profile-section bottom-pane">
             <div class="section-heading" data-reveal>
-              <span class="section-index" aria-hidden="true">05</span>
+              <span class="section-index" aria-hidden="true">04</span>
               <h2>个人</h2>
               <p class="eyebrow">
                 <span>Profile</span>
@@ -297,10 +284,19 @@
               <p class="profile-statement">
                 该实验台是用于记录笔记、仓库和一些照片的平台。所有笔记均来自本人或其他书本引用，没有AI介入。平台将会持续更新，并且不断的做各种优化，增强用户的使用和交互体验。
               </p>
-              <div class="profile-stats">
-                <span><strong data-stat="repos">0</strong><small>个项目</small></span>
-                <span><strong data-stat="notes">0</strong><small>则笔记</small></span>
-                <span><strong data-stat="gallery">0</strong><small>本相册</small></span>
+              <div class="profile-side">
+                <div class="profile-stats">
+                  <span><strong data-stat="repos">0</strong><small>个项目</small></span>
+                  <span><strong data-stat="notes">0</strong><small>则笔记</small></span>
+                  <span><strong data-stat="gallery">0</strong><small>本相册</small></span>
+                </div>
+                <!-- 近期更新：内容 / 模板两份更新日志的最新几条。保留 id="updates"，旧链接仍能跳到这里。 -->
+                <div id="updates" class="profile-updates" role="group" aria-labelledby="profile-updates-title">
+                  <p class="profile-updates-label" id="profile-updates-title">RECENT <span aria-hidden="true">·</span> 近期更新</p>
+                  <div class="update-grid">
+                    <div class="loading-row">正在读取更新历史…</div>
+                  </div>
+                </div>
               </div>
               <!-- 社交链接：把 href="" 改成完整网址；留空的链接不会显示。 -->
               <nav class="profile-social" aria-label="社交媒体" hidden>
@@ -367,6 +363,6 @@
     </section>
 
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261112-7"></script>
+    <script src="./script.js?v=20261113-2"></script>
   </body>
 </html>

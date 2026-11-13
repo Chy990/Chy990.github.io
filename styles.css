@@ -517,7 +517,7 @@ body.is-nav-scrolling .site-header {
 
 /*
   菜单的液态药丸：只在 .primary-nav 内部存在。
-  一个药丸在五个菜单项之间滑动，宽度也跟着目标项变化。
+  一个药丸在四个菜单项之间滑动，宽度也跟着目标项变化。
 */
 .nav-lens {
   position: absolute;
@@ -1951,15 +1951,58 @@ h2 {
   scroll-margin-top: 96px;
 }
 
+/*
+  近期更新：放在“个人”面板统计数字下方的两个小模块。
+  每块是一条迷你时间线（日期 + 一行摘要），点击整块进入完整日志。
+*/
+.profile-side {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+/*
+  两栏时右侧（统计 + 近期更新）和左边文字等高：右栏拉伸到文字的高度，
+  上下两组分别贴住顶部和底部。上下各留出半个行距，对齐文字真正的首行顶和末行底。
+*/
+@media (min-width: 1181px) {
+  .profile-side {
+    align-self: stretch;
+    align-content: space-between;
+    padding-block: calc(0.36 * clamp(19px, 2.1vw, 26px));
+  }
+}
+
+.profile-updates {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  scroll-margin-top: 96px;
+}
+
+.profile-updates-label {
+  margin: 0;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+}
+
+.profile-updates-label span {
+  padding: 0 3px;
+  color: var(--accent);
+}
+
 .update-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 10px;
 }
 
 .update-grid > .content-link {
   display: flex;
-  border-radius: var(--radius-xl);
+  min-width: 0;
+  border-radius: var(--radius-md);
 }
 
 .update-card {
@@ -1967,13 +2010,13 @@ h2 {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 240px;
-  padding: 22px 22px 20px;
+  min-width: 0;
+  padding: 8px 14px 9px;
   overflow: hidden;
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  background: var(--glass);
-  box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(20, 22, 30, 0.4);
+  border-radius: var(--radius-md);
+  background: var(--glass-nested, var(--glass));
+  box-shadow: var(--glass-highlight);
   transition:
     transform 380ms var(--ease-spring),
     background-color 280ms ease,
@@ -1982,7 +2025,9 @@ h2 {
 }
 
 .update-card .card-meta {
-  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 3px;
   color: var(--accent);
   font-family: var(--font-mono);
   font-size: 9px;
@@ -1990,68 +2035,78 @@ h2 {
   text-transform: uppercase;
 }
 
+.update-card .card-meta span:last-child {
+  color: var(--faint);
+  letter-spacing: 0;
+  transition: color 240ms ease, transform 320ms var(--ease-spring);
+}
+
+.update-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
 .update-card h3 {
-  margin: 0 0 14px;
+  margin: 0;
+  overflow: hidden;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.01em;
   line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: color 240ms ease;
 }
 
-.update-card .content-preview {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.update-card .content-preview p {
-  margin: 0 0 0.55em;
-}
-
-.update-card .content-preview .update-date {
-  margin: 1.1em 0 0.35em;
+.update-card time {
+  flex: 0 0 auto;
   color: var(--faint);
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-}
-
-.update-card .content-preview .update-date:first-child {
-  margin-top: 0;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
 
 .update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card {
   border-color: var(--glass-border);
   background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
-  transform: translateY(-5px) scale(1.004);
+  box-shadow: var(--glass-highlight), 0 18px 36px -26px rgba(20, 22, 30, 0.45);
+  transform: translateY(-3px);
 }
 
 @media (hover: hover) {
   .update-grid .content-link:hover .update-card {
     border-color: var(--glass-border);
     background: var(--glass-strong);
-    box-shadow: var(--glass-highlight), 0 32px 60px -38px rgba(20, 22, 30, 0.47);
-    transform: translateY(-5px) scale(1.004);
+    box-shadow: var(--glass-highlight), 0 18px 36px -26px rgba(20, 22, 30, 0.45);
+    transform: translateY(-3px);
   }
 }
 
 .update-grid .content-link:active .update-card {
   border-color: var(--accent);
   box-shadow: var(--glass-highlight), 0 0 0 3px var(--accent-soft);
-  transform: translateY(-1px) scale(0.997);
+  transform: translateY(-1px) scale(0.99);
   transition-duration: 120ms;
 }
 
-.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card h3 {
+.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card h3,
+.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card .card-meta span:last-child {
   color: var(--accent);
 }
 
 @media (hover: hover) {
-  .update-grid .content-link:hover .update-card h3 {
+  .update-grid .content-link:hover .update-card h3,
+  .update-grid .content-link:hover .update-card .card-meta span:last-child {
     color: var(--accent);
+  }
+
+  .update-grid .content-link:hover .update-card .card-meta span:last-child {
+    transform: translate(2px, -2px);
   }
 }
 
@@ -2059,9 +2114,9 @@ h2 {
 .profile-panel {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  align-items: end;
-  gap: clamp(32px, 6vw, 72px);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 64px);
   padding: clamp(28px, 4vw, 48px);
   overflow: hidden;
   border: 1px solid var(--glass-border);
@@ -2099,7 +2154,7 @@ h2 {
 }
 
 .profile-stats span {
-  padding: 16px;
+  padding: 10px 14px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   background: var(--glass-nested, var(--glass));
@@ -2109,7 +2164,7 @@ h2 {
 .profile-stats strong {
   display: block;
   font-family: var(--font-display);
-  font-size: clamp(36px, 4vw, 52px);
+  font-size: clamp(26px, 2.3vw, 32px);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.035em;
@@ -2118,7 +2173,7 @@ h2 {
 
 .profile-stats small {
   display: block;
-  margin-top: 9px;
+  margin-top: 6px;
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 9px;
@@ -2785,6 +2840,18 @@ body.is-reader-open .reader-scrim {
   }
 }
 
+/*
+  个人面板右侧还放着两个近期更新小模块，宽度不足 1180px（含 iPad 横屏）时
+  两栏会把小模块挤得太窄，所以提前改成上下排列。
+*/
+@media (max-width: 1180px) {
+  .profile-panel {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 32px;
+  }
+}
+
 @media (max-width: 1100px) {
   .hero {
     gap: 40px;
@@ -2846,19 +2913,6 @@ body.is-reader-open .reader-scrim {
     height: 360px;
   }
 
-  .profile-panel {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    gap: 32px;
-  }
-
-  .profile-stats {
-    border-top: 0;
-  }
-
-  .profile-stats span {
-    padding-top: 16px;
-  }
 }
 
 @media (max-width: 760px) {
@@ -2869,7 +2923,10 @@ body.is-reader-open .reader-scrim {
   .repo-grid > .content-link:last-child {
     grid-column: auto;
   }
+}
 
+/* 极窄屏幕（小于 360px）才把两个近期更新小模块改成上下排列。 */
+@media (max-width: 360px) {
   .update-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3212,16 +3269,6 @@ body.is-reader-open .reader-scrim {
     font-size: 24px;
   }
 
-  .update-card {
-    min-height: 0;
-    padding: 22px 20px;
-    border-radius: var(--radius-lg);
-  }
-
-  .update-card h3 {
-    font-size: 23px;
-  }
-
   .bottom-layout {
     gap: 40px;
     padding-bottom: 48px;
@@ -3239,7 +3286,7 @@ body.is-reader-open .reader-scrim {
   }
 
   .profile-stats strong {
-    font-size: 34px;
+    font-size: 28px;
   }
 
   .profile-stats span {
@@ -3352,7 +3399,7 @@ body.is-reader-open .reader-scrim {
   }
 
   .profile-stats strong {
-    font-size: 30px;
+    font-size: 26px;
   }
 
   .profile-stats small {

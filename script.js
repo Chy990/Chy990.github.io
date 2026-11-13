@@ -1902,9 +1902,21 @@ function renderSiteSearch() {
 document.querySelector("[data-site-search]").addEventListener("input", renderSiteSearch);
 
 /*
-  渲染最近更新：
-  读取 content/updates 里的 Markdown 历史，生成主页底部的更新卡片。
-  更新日志里的日期标题会被保留，避免只剩下没有时间上下文的条目。
+  从更新日志里取最近一次的日期（第一个“### YYYY-MM-DD”标题），显示成 11.12 这样的短格式。
+*/
+function latestUpdateDate(markdown) {
+  const match = markdown.match(/^#{2,4}\s*(\d{4})[-./](\d{1,2})[-./](\d{1,2})/m);
+  if (!match) return null;
+  return {
+    iso: `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`,
+    short: `${match[2].padStart(2, "0")}.${match[3].padStart(2, "0")}`,
+  };
+}
+
+/*
+  渲染近期更新：
+  放在“个人”统计数字下方的两个小模块，只显示类型、名称和最近一次更新的日期，
+  点击整块进入完整的更新日志。
 */
 async function renderUpdates() {
   const container = document.querySelector(".update-grid");
@@ -1913,20 +1925,25 @@ async function renderUpdates() {
   const cards = await Promise.all(
     entries.map(async (entry) => {
       const markdown = await readTextSafe(`./content/updates/${entry.file}`);
+      const latest = latestUpdateDate(markdown);
+      const label = UPDATE_TYPE_LABELS[entry.type] || entry.title;
+      const dateHtml = latest
+        ? `<time datetime="${latest.iso}">${latest.short}</time>`
+        : `<time>—</time>`;
       return `
-        <a class="content-link" href="${detailHref("update", entry.file)}" data-reveal>
+        <a class="content-link" href="${detailHref("update", entry.file)}" aria-label="${escapeHtml(`${label}${latest ? `，最近 ${latest.iso}` : ""}：查看完整更新日志`)}">
           <article class="update-card">
-            <p class="card-meta">${escapeHtml(entry.type)}</p>
-            <h3>${escapeHtml(entry.title)}</h3>
-            <div class="content-preview">${markdownToPreview(stripFirstHeading(markdown), 6, { dateHeadings: true })}</div>
-            <div class="card-cta">查看更新日志 <span aria-hidden="true">↗</span></div>
+            <p class="card-meta"><span>${escapeHtml(entry.type)}</span><span aria-hidden="true">↗</span></p>
+            <div class="update-card-row">
+              <h3>${escapeHtml(label)}</h3>
+              ${dateHtml}
+            </div>
           </article>
         </a>
       `;
     })
   );
   container.innerHTML = cards.join("");
-  prepareReveal(container);
 }
 
 /*
@@ -2353,7 +2370,7 @@ async function openMarkdownDetail(kind, file, isCurrent = () => true) {
     meta,
     // 详情页顶部已经有 reader-title，这里去掉 Markdown 第一行 H1，避免标题重复显示。
     bodyHtml,
-    backHref: isNote ? "#notes" : isUpdate ? "#updates" : "#repos",
+    backHref: isNote ? "#notes" : isUpdate ? "#profile" : "#repos",
   });
   return true;
 }
