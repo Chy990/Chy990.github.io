@@ -41,7 +41,7 @@
       ?v= 后面是缓存版本号。改了 styles.css / script.js 后如果刷新没变化，
       把这里和底部 script 的版本号一起改大即可。
     -->
-    <link rel="stylesheet" href="./styles.css?v=20261113-6" />
+    <link rel="stylesheet" href="./styles.css?v=20261113-8" />
 
     <!--
       首屏右侧每次随机挑选十项：相册照片和一篇笔记。
@@ -85,6 +85,22 @@
           <a href="#repos" data-nav>仓库</a>
           <a href="#gallery" data-nav>相册</a>
           <a href="#profile" data-nav>个人</a>
+          <!--
+            搜索：平时只是胶囊末尾的一个放大镜。点开后整个胶囊原地变宽成搜索框，
+            结果面板出现在胶囊下方（手机 / iPad 底部导航时在上方）；关闭后胶囊缩回原样。
+          -->
+          <span class="nav-search-divider" aria-hidden="true"></span>
+          <button class="nav-search-toggle" type="button" aria-label="搜索笔记、仓库和相册" aria-expanded="false" aria-controls="site-search-panel" title="搜索">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.6" cy="10.6" r="6.1" stroke="currentColor" stroke-width="1.8" /><path d="m15.2 15.2 4.6 4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          </button>
+          <div class="nav-search-field" hidden>
+            <svg class="nav-search-field-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.6" cy="10.6" r="6.1" stroke="currentColor" stroke-width="1.8" /><path d="m15.2 15.2 4.6 4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+            <label class="sr-only" for="site-search-input">搜索笔记、仓库和相册</label>
+            <input id="site-search-input" type="search" placeholder="搜索笔记、仓库和相册…" data-site-search autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-controls="site-search-panel" />
+            <button class="nav-search-close" type="button" aria-label="关闭搜索" title="关闭（Esc）">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+            </button>
+          </div>
         </nav>
 
         <div class="header-actions">
@@ -205,17 +221,6 @@
           if (typeof window.applyHeroRandom === "function") window.applyHeroRandom();
         </script>
 
-        <section class="site-search" aria-label="搜索网站内容">
-          <div class="site-search-intro"><span class="site-search-kicker">EXPLORE THE ARCHIVE</span><h2>找点什么？</h2><p>搜索笔记、仓库和相册</p></div>
-          <div class="site-search-main">
-            <label class="site-search-field"><span class="sr-only">搜索笔记、仓库和相册</span><span class="site-search-icon" aria-hidden="true">⌕</span><input type="search" placeholder="输入关键词，发现更多…" data-site-search autocomplete="off" /><span class="site-search-enter" aria-hidden="true">SEARCH</span></label>
-            <div class="site-search-output" hidden>
-              <p class="site-search-status" role="status" aria-live="polite"></p>
-              <div class="site-search-results"></div>
-            </div>
-          </div>
-        </section>
-
         <!-- 笔记：清单式索引，点击整行进入阅读页。 -->
         <section id="notes" class="content-section split-section">
           <div class="section-heading" data-reveal>
@@ -327,6 +332,15 @@
     </div>
 
     <!--
+      搜索结果面板：放在 .page-shell 外面，固定定位，由脚本贴着搜索胶囊摆放
+      （桌面端在胶囊下方，手机 / iPad 底部导航时在胶囊上方、键盘之上）。
+    -->
+    <div class="site-search-output" id="site-search-panel" role="region" aria-label="搜索结果" hidden>
+      <p class="site-search-status" role="status" aria-live="polite"></p>
+      <div class="site-search-results"></div>
+    </div>
+
+    <!--
       手机 / iPad 的详情导航条容器：脚本会把 .reader-bar 移到这里，
       这样它和底部主导航处在同一层，进出详情时可以做位置与宽度的过渡动画。
     -->
@@ -363,6 +377,6 @@
     </section>
 
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
-    <script src="./script.js?v=20261113-2"></script>
+    <script src="./script.js?v=20261113-4"></script>
   </body>
 </html>

@@ -1881,25 +1881,288 @@ async function buildSiteSearch() {
   renderSiteSearch();
 }
 
+// 把匹配到的关键词包进 <mark>：先按关键词切段，再分别转义，避免转义后的实体被误匹配。
+function highlightTerms(text, terms) {
+  if (!text) return "";
+  if (!terms.length) return escapeHtml(text);
+  const pattern = new RegExp(`(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  return text
+    .split(pattern)
+    .map((part, index) => (index % 2 ? `<mark>${escapeHtml(part)}</mark>` : escapeHtml(part)))
+    .join("");
+}
+
 function renderSiteSearch() {
-  const query = document.querySelector("[data-site-search]").value.trim().toLowerCase();
-  const output = document.querySelector(".site-search-output");
-  const status = document.querySelector(".site-search-status");
-  const results = document.querySelector(".site-search-results");
-  output.hidden = !query;
-  if (!query) { results.innerHTML = ""; return; }
-  if (!siteSearchEntries) { status.textContent = "正在准备搜索…"; results.innerHTML = ""; return; }
-  const terms = query.split(/\s+/);
+  const query = siteSearchInput ? siteSearchInput.value.trim().toLowerCase() : "";
+  const output = siteSearchPanel;
+  const status = output?.querySelector(".site-search-status");
+  const results = output?.querySelector(".site-search-results");
+  if (!output || !status || !results) return;
+
+  output.hidden = !query || !siteSearchOpen;
+  if (!query) { results.innerHTML = ""; status.textContent = ""; return; }
+  if (!siteSearchEntries) { status.textContent = "正在准备搜索…"; results.innerHTML = ""; positionSearchPanel(); return; }
+  const terms = query.split(/\s+/).filter(Boolean);
   const matches = siteSearchEntries.filter((entry) => terms.every((term) => entry.searchable.includes(term)));
   status.textContent = matches.length ? `找到 ${matches.length} 条结果` : "没有找到相关内容，试试其他关键词。";
   results.innerHTML = matches.map((entry) => {
     const position = entry.body.toLowerCase().indexOf(terms[0]);
     const snippet = position >= 0 ? `${position > 25 ? "…" : ""}${entry.body.slice(Math.max(0, position - 25), position + 65)}${position + 65 < entry.body.length ? "…" : ""}` : entry.body.slice(0, 90);
-    return `<a class="content-link site-search-result" href="${detailHref(entry.kind, entry.file)}"><span class="site-search-type">${entry.label}</span><span class="site-search-result-copy"><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(entry.meta)}</small>${snippet ? `<span>${escapeHtml(snippet)}</span>` : ""}</span><span class="site-search-arrow" aria-hidden="true">↗</span></a>`;
+    return `<a class="content-link site-search-result" href="${detailHref(entry.kind, entry.file)}" data-search-result><span class="site-search-type">${entry.label}</span><span class="site-search-result-copy"><strong>${highlightTerms(entry.title, terms)}</strong><small>${escapeHtml(entry.meta)}</small>${snippet ? `<span>${highlightTerms(snippet, terms)}</span>` : ""}</span><span class="site-search-arrow" aria-hidden="true">↗</span></a>`;
   }).join("");
+  results.scrollTop = 0;
+  positionSearchPanel();
 }
 
-document.querySelector("[data-site-search]").addEventListener("input", renderSiteSearch);
+/*
+  菜单胶囊里的搜索：
+  - 平时胶囊末尾只有一个放大镜；
+  - 点开后胶囊原地变宽（宽度用过渡动画，从当前宽度到目标宽度），菜单项淡出，输入框淡入；
+  - 结果面板固定定位，桌面端贴在页头下方，手机 / iPad 底部导航时贴在胶囊上方；
+  - 关闭时胶囊从搜索宽度缩回菜单本来的宽度，再撤掉内联宽度，回到 CSS 自然布局。
+
+  iOS 弹出键盘时只缩小 visualViewport，固定在底部的导航会被键盘盖住，
+  所以把键盘高度写进 --search-kb，让底部胶囊和结果面板一起停在键盘上方。
+*/
+const siteSearchToggle = navElement?.querySelector(".nav-search-toggle");
+const siteSearchField = navElement?.querySelector(".nav-search-field");
+const siteSearchInput = document.querySelector("[data-site-search]");
+const siteSearchClose = navElement?.querySelector(".nav-search-close");
+const siteSearchPanel = document.querySelector("#site-search-panel");
+const SEARCH_MORPH_MS = 460;
+const SEARCH_MAX_WIDTH = 560;
+let siteSearchOpen = false;
+let siteSearchMorphTimer = 0;
+
+function isSiteSearchOpen() {
+  return siteSearchOpen;
+}
+
+function isIPadDock() {
+  return document.body.classList.contains("nav-dock-ipad");
+}
+
+// 搜索时胶囊要变成多宽：底部导航按屏幕宽度算；页头里要给左右两侧的品牌和按钮留位置。
+function siteSearchTargetWidth() {
+  if (!navElement) return SEARCH_MAX_WIDTH;
+  const viewportWidth = document.documentElement.clientWidth;
+
+  if (isNavDocked()) {
+    const gutter = isIPadDock() ? 40 : 24;
+    return Math.min(SEARCH_MAX_WIDTH, viewportWidth - gutter);
+  }
+
+  // 页头是 1fr auto 1fr：中间列最宽 = 内容宽 − 两侧较宽的一边 × 2 − 两个列间距。
+  const style = getComputedStyle(siteHeader);
+  const inner = siteHeader.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+  const gap = Number.parseFloat(style.columnGap) || 20;
+  const brandWidth = siteHeader.querySelector(".brand")?.offsetWidth || 0;
+  const actionsWidth = headerActions?.offsetWidth || 0;
+  const available = inner - Math.max(brandWidth, actionsWidth) * 2 - gap * 2;
+  return Math.max(240, Math.min(SEARCH_MAX_WIDTH, available));
+}
+
+// 布局视口高度：iOS 弹键盘时 innerHeight 会跟着变，clientHeight 不会。
+function layoutViewportHeight() {
+  return document.documentElement.clientHeight || window.innerHeight;
+}
+
+function syncSearchKeyboardInset() {
+  const viewport = window.visualViewport;
+  let inset = 0;
+  if (siteSearchOpen && viewport && isNavDocked()) {
+    inset = Math.max(0, layoutViewportHeight() - viewport.height - viewport.offsetTop);
+    // 小于 60px 的差值多半是地址栏收放，不是键盘。
+    if (inset < 60) inset = 0;
+  }
+  document.body.style.setProperty("--search-kb", `${Math.round(inset)}px`);
+  positionSearchPanel();
+}
+
+// 结果面板贴着胶囊摆放。宽度用胶囊的目标宽度，这样胶囊还在变宽时面板就已经对齐。
+function positionSearchPanel() {
+  if (!siteSearchOpen || !siteSearchPanel || !navElement) return;
+
+  const navRect = navElement.getBoundingClientRect();
+  const width = Number.parseFloat(navElement.style.width) || navRect.width;
+  const left = isNavDocked() && isIPadDock()
+    ? navRect.left
+    : navRect.left + navRect.width / 2 - width / 2;
+  const panel = siteSearchPanel.style;
+  panel.left = `${Math.round(left)}px`;
+  panel.width = `${Math.round(width)}px`;
+
+  const viewport = window.visualViewport;
+  const viewTop = viewport ? viewport.offsetTop : 0;
+  const gap = 10;
+
+  if (isNavDocked()) {
+    const bottomEdge = navRect.top - gap;
+    panel.top = "auto";
+    panel.bottom = `${Math.round(layoutViewportHeight() - bottomEdge)}px`;
+    panel.maxHeight = `${Math.max(120, Math.round(Math.min(520, bottomEdge - viewTop - 16)))}px`;
+  } else {
+    const top = (siteHeader?.getBoundingClientRect().bottom || navRect.bottom) + gap;
+    const viewHeight = viewport ? viewport.height : window.innerHeight;
+    panel.bottom = "auto";
+    panel.top = `${Math.round(top)}px`;
+    panel.maxHeight = `${Math.max(160, Math.round(Math.min(560, viewTop + viewHeight - top - 20)))}px`;
+  }
+}
+
+function openSiteSearch() {
+  if (siteSearchOpen || !navElement || !siteSearchField || !siteSearchInput) return;
+  if (isReaderOpen() || document.body.classList.contains("is-lightbox-open")) return;
+
+  siteSearchOpen = true;
+  window.clearTimeout(siteSearchMorphTimer);
+  // 正在拖动 / 回弹的药丸先收住，避免它在变宽的胶囊里乱跑。
+  if (navLensMotion.phase) finishNavLensMotion();
+
+  const fromWidth = navElement.getBoundingClientRect().width;
+  siteSearchField.hidden = false;
+  navElement.style.width = `${fromWidth}px`;
+  void navElement.offsetWidth; // 先让浏览器记住起始宽度，下面的变宽才会有过渡。
+  navElement.classList.remove("is-search-closing");
+  navElement.classList.add("is-searching");
+  document.body.classList.add("is-searching");
+  navElement.style.width = `${siteSearchTargetWidth()}px`;
+  siteSearchToggle?.setAttribute("aria-expanded", "true");
+
+  // 必须在这次点击里同步 focus，iOS 才会弹出键盘。
+  siteSearchInput.focus({ preventScroll: true });
+  siteSearchInput.select();
+
+  syncSearchKeyboardInset();
+  renderSiteSearch();
+  // 胶囊变宽结束后再对一次位置（页头高度、键盘高度可能在这期间变化）。
+  siteSearchMorphTimer = window.setTimeout(positionSearchPanel, SEARCH_MORPH_MS);
+}
+
+function closeSiteSearch({ restoreFocus = true } = {}) {
+  if (!siteSearchOpen || !navElement) return;
+
+  siteSearchOpen = false;
+  window.clearTimeout(siteSearchMorphTimer);
+  const hadFocus = navElement.contains(document.activeElement) || siteSearchPanel?.contains(document.activeElement);
+
+  const fromWidth = navElement.getBoundingClientRect().width;
+  navElement.classList.add("is-search-closing");
+  navElement.classList.remove("is-searching");
+  document.body.classList.remove("is-searching");
+  siteSearchToggle?.setAttribute("aria-expanded", "false");
+  if (siteSearchPanel) siteSearchPanel.hidden = true;
+
+  // 量出菜单本来的宽度，再从搜索宽度过渡回去。
+  navElement.style.width = "";
+  const toWidth = navElement.getBoundingClientRect().width;
+  navElement.style.width = `${fromWidth}px`;
+  void navElement.offsetWidth;
+  navElement.style.width = `${toWidth}px`;
+
+  siteSearchMorphTimer = window.setTimeout(() => {
+    if (siteSearchOpen) return;
+    navElement.classList.remove("is-search-closing");
+    navElement.style.width = "";
+    if (siteSearchField) siteSearchField.hidden = true;
+    measureNavLinks();
+    syncNavLens(true);
+  }, SEARCH_MORPH_MS);
+
+  if (hadFocus) {
+    if (restoreFocus && siteSearchToggle) {
+      restoreFocusTo(siteSearchToggle);
+    } else if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }
+  syncSearchKeyboardInset();
+}
+
+function searchResultLinks() {
+  return siteSearchPanel ? [...siteSearchPanel.querySelectorAll("[data-search-result]")] : [];
+}
+
+function setupSiteSearch() {
+  if (!navElement || !siteSearchToggle || !siteSearchInput) return;
+
+  siteSearchToggle.addEventListener("click", () => openSiteSearch());
+  siteSearchClose?.addEventListener("click", () => closeSiteSearch());
+  siteSearchInput.addEventListener("input", renderSiteSearch);
+
+  // 输入框里：↓ 进入结果，回车直接打开第一条。
+  siteSearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") {
+      const first = searchResultLinks()[0];
+      if (first) {
+        event.preventDefault();
+        first.focus();
+      }
+    } else if (event.key === "Enter" && !event.isComposing) {
+      const first = searchResultLinks()[0];
+      if (first) {
+        event.preventDefault();
+        first.click();
+      }
+    }
+  });
+
+  // 结果列表里：↑ / ↓ 在结果之间移动，第一条再往上回到输入框。
+  siteSearchPanel?.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const links = searchResultLinks();
+    const index = links.indexOf(document.activeElement);
+    if (index < 0) return;
+    event.preventDefault();
+    const next = event.key === "ArrowDown" ? links[index + 1] : links[index - 1];
+    (next || (event.key === "ArrowUp" ? siteSearchInput : links[index])).focus();
+  });
+
+  // 点到胶囊和结果面板以外的地方就收起。
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!siteSearchOpen) return;
+      if (navElement.contains(event.target) || siteSearchPanel?.contains(event.target)) return;
+      closeSiteSearch({ restoreFocus: false });
+    },
+    true
+  );
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && siteSearchOpen) {
+      event.preventDefault();
+      closeSiteSearch();
+      return;
+    }
+
+    // ⌘K / Ctrl+K 随时打开或关闭；“/” 在没有正在输入时打开。
+    const isShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k";
+    const target = event.target;
+    const typing = target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+    const isSlash = event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey && !typing;
+    if (!isShortcut && !isSlash) return;
+    if (isShortcut && siteSearchOpen) {
+      event.preventDefault();
+      closeSiteSearch();
+      return;
+    }
+    if (isReaderOpen() || document.body.classList.contains("is-lightbox-open")) return;
+    event.preventDefault();
+    openSiteSearch();
+  });
+
+  window.addEventListener("resize", () => {
+    if (!siteSearchOpen) return;
+    navElement.style.width = `${siteSearchTargetWidth()}px`;
+    syncSearchKeyboardInset();
+  });
+  window.addEventListener("scroll", () => {
+    if (siteSearchOpen) positionSearchPanel();
+  }, { passive: true });
+  window.visualViewport?.addEventListener("resize", syncSearchKeyboardInset);
+  window.visualViewport?.addEventListener("scroll", syncSearchKeyboardInset);
+}
 
 /*
   从更新日志里取最近一次的日期（第一个“### YYYY-MM-DD”标题），显示成 11.12 这样的短格式。
@@ -2119,6 +2382,8 @@ function setReader({ type, title, bodyHtml, backHref, meta = "" }) {
     (currentOpenSource?.link?.isConnected ? currentOpenSource.link : null) ||
     findCurrentDetailLink(window.location.hash);
   const sourceRect = sourceLink ? sourceLink.getBoundingClientRect() : null;
+  // 从搜索结果打开时，先量好结果的位置再收起搜索，阅读层仍能从这条结果“长”出来。
+  if (isSiteSearchOpen()) closeSiteSearch({ restoreFocus: false });
 
   reader.querySelector(".reader-type").textContent = type;
   reader.querySelector(".reader-title").textContent = title;
@@ -2957,7 +3222,8 @@ async function renderContent() {
   updateProfileStats();
   buildSiteSearch().catch((error) => {
     console.error("搜索索引读取失败", error);
-    document.querySelector(".site-search-status").textContent = "搜索暂时不可用，请刷新页面重试。";
+    const status = document.querySelector(".site-search-status");
+    if (status) status.textContent = "搜索暂时不可用，请刷新页面重试。";
   });
   await handleRoute();
 }
@@ -3195,6 +3461,7 @@ setupThemeToggle();
 setupTermTip();
 syncNavPlacement();
 setupNavLens();
+setupSiteSearch();
 prepareReveal();
 updateActiveNav();
 renderContent();
