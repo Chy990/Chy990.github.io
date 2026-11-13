@@ -73,15 +73,6 @@
   --reader-scrim: rgba(22, 22, 30, 0.3);
   /* 阅读纸距离屏幕边缘的距离，底部导航条会跟着它一起对齐。 */
   --reader-inset: clamp(10px, 2vw, 22px);
-  /* 纯白底不铺环境光；深色模式仍保留。 */
-  --ambient-a: transparent;
-  --ambient-b: transparent;
-  /* 环境光的三层渐变。抽成变量，方便在“跟随页面滚动”和“固定层”两种模式之间复用。 */
-  --ambient-layers:
-    radial-gradient(60vw 50vh at 4% -10%, var(--ambient-a), transparent 62%),
-    radial-gradient(50vw 42vh at 104% 0%, var(--ambient-b), transparent 58%),
-    radial-gradient(55vw 45vh at 52% 108%, var(--ambient-b), transparent 62%);
-
   --photo-filter: saturate(0.94) contrast(1.02);
 
   /* 苹果设备系统字体：拉丁字母走 SF Pro，中文走苹方（PingFang SC）。 */
@@ -144,9 +135,6 @@
   --reader-bg: rgba(22, 20, 17, 0.985);
   --glass-nested: var(--glass);
   --reader-scrim: rgba(0, 0, 0, 0.64);
-  --ambient-a: rgba(196, 112, 70, 0.18);
-  --ambient-b: rgba(72, 112, 128, 0.16);
-
   --photo-filter: brightness(0.9) saturate(0.94) contrast(1.02);
 }
 
@@ -188,8 +176,6 @@
     --reader-bg: rgba(22, 20, 17, 0.985);
     --glass-nested: var(--glass);
     --reader-scrim: rgba(0, 0, 0, 0.64);
-    --ambient-a: rgba(196, 112, 70, 0.18);
-    --ambient-b: rgba(72, 112, 128, 0.16);
     --photo-filter: brightness(0.9) saturate(0.94) contrast(1.02);
   }
 }
@@ -215,15 +201,8 @@ body {
   margin: 0;
   min-height: 100vh;
   overflow-x: hidden;
-  /*
-    纸张底色交给 <html>，body 自己保持透明。
-    这样环境光才能单独放在 body::before 这个固定层里，
-    而不是靠 background-attachment: fixed 拖慢每一次滚动。
-  */
+  /* 纸张底色交给 <html>，整页保持统一的底色。 */
   background-color: transparent;
-  background-image: var(--ambient-layers);
-  background-attachment: scroll;
-  background-repeat: no-repeat;
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 16px;
@@ -248,28 +227,6 @@ body::after {
 
 :root[data-theme="dark"] body::after {
   opacity: 0.045;
-}
-
-/*
-  大屏的环境光固定在整个视口上。
-  以前这里用的是 background-attachment: fixed —— 它会让浏览器在每一帧滚动时
-  重新绘制整屏背景（渐变区域正好是视口大小），是滚动掉帧的常见来源。
-  现在换成独立的固定层：它被提升为一个合成层，滚动时只移动图层，不再重绘。
-*/
-@media (min-width: 901px) {
-  body {
-    background-image: none;
-  }
-
-  body::before {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    content: "";
-    pointer-events: none;
-    background-image: var(--ambient-layers);
-    background-repeat: no-repeat;
-  }
 }
 
 ::selection {
@@ -4302,6 +4259,14 @@ body.nav-docked .site-search-output {
   background:
     radial-gradient(circle at 100% 0, var(--accent-soft), transparent 55%),
     var(--card);
+}
+:root[data-theme="dark"] .orbit-face--note {
+  background: var(--card);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .orbit-face--note {
+    background: var(--card);
+  }
 }
 .orbit-note-label,
 .orbit-note-foot {
