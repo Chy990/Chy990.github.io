@@ -83,9 +83,9 @@ document.addEventListener("pointerdown", () => {
 }, true);
 
 // 把焦点还给卡片 / 按钮。指针操作时用“安静焦点”：焦点位置保留（Tab 会从这里继续），但不画焦点样式。
-function restoreFocusTo(element) {
+function restoreFocusTo(element, { quiet = false } = {}) {
   if (!element?.isConnected) return;
-  if (!lastInputWasKeyboard) {
+  if (quiet || !lastInputWasKeyboard) {
     element.classList.add("is-quiet-focus");
     element.addEventListener("blur", () => element.classList.remove("is-quiet-focus"), { once: true });
   }
@@ -2039,7 +2039,7 @@ function openSiteSearch() {
   siteSearchMorphTimer = window.setTimeout(positionSearchPanel, SEARCH_MORPH_MS);
 }
 
-function closeSiteSearch({ restoreFocus = true } = {}) {
+function closeSiteSearch({ restoreFocus = true, quietFocus = false } = {}) {
   if (!siteSearchOpen || !navElement) return;
 
   siteSearchOpen = false;
@@ -2071,7 +2071,7 @@ function closeSiteSearch({ restoreFocus = true } = {}) {
 
   if (hadFocus) {
     if (restoreFocus && siteSearchToggle) {
-      restoreFocusTo(siteSearchToggle);
+      restoreFocusTo(siteSearchToggle, { quiet: quietFocus });
     } else if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -2132,7 +2132,7 @@ function setupSiteSearch() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && siteSearchOpen) {
       event.preventDefault();
-      closeSiteSearch();
+      closeSiteSearch({ quietFocus: true });
       return;
     }
 

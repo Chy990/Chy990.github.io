@@ -3711,15 +3711,6 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   white-space: nowrap;
 }
 
-.nav-search-divider {
-  flex: 0 0 auto;
-  width: 1px;
-  height: 16px;
-  margin: 0 2px 0 6px;
-  background: var(--rule);
-  transition: opacity 160ms ease;
-}
-
 .nav-search-toggle {
   position: relative;
   z-index: 1;
@@ -3750,7 +3741,6 @@ body.nav-docked.nav-dock-ipad .reader-bar {
 
 @media (hover: hover) {
   .nav-search-toggle:hover {
-    background: var(--nav-lens-bg);
     color: var(--ink);
   }
 }
@@ -3759,7 +3749,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   transform: scale(0.9);
 }
 
-.nav-search-toggle:focus-visible {
+.nav-search-toggle:focus-visible:not(.is-quiet-focus) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -3853,7 +3843,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   outline-offset: 1px;
 }
 
-/* 搜索中：胶囊变成实色输入框，菜单项、分隔线、放大镜和药丸淡出，搜索框随后淡入。 */
+/* 搜索中：胶囊变成实色输入框，菜单项、放大镜和药丸淡出，搜索框随后淡入。 */
 .primary-nav.is-searching {
   border-color: var(--rule-strong);
   background: var(--reader-bg);
@@ -3864,7 +3854,6 @@ body.nav-docked.nav-dock-ipad .reader-bar {
 }
 
 .primary-nav.is-searching > a,
-.primary-nav.is-searching .nav-search-divider,
 .primary-nav.is-searching .nav-search-toggle,
 .primary-nav.is-searching .nav-lens {
   opacity: 0;
