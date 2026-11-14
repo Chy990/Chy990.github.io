@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 
@@ -51,26 +52,56 @@ def title_from_slug(slug: str) -> str:
     return " ".join(word for word in words if word).strip() or "Untitled"
 
 
-def note_entry(path: Path) -> dict[str, str]:
+def note_entry(path: Path, previous: dict[str, str] | None = None) -> dict[str, str]:
 
     match = re.match(r"^(\d{4})_(\d{2})_(\d{2})_([^_]+)_(.+)\.md$", path.name)
     heading = read_first_heading(path)
 
     if match:
         year, month, day, note_type, slug = match.groups()
-        return {
+        entry = {
             "date": f"{year}-{month}-{day}",
             "type": note_type,
             "title": heading or title_from_slug(slug),
             "file": path.name,
         }
 
-    return {
-        "date": "0000-00-00",
-        "type": "note",
-        "title": heading or title_from_slug(path.stem),
-        "file": path.name,
-    }
+    else:
+        entry = {
+            "date": "0000-00-00",
+            "type": "note",
+            "title": heading or title_from_slug(path.stem),
+            "file": path.name,
+        }
+
+    # The generated index is also the baseline for detecting later edits. The
+    # first run records fingerprints without inventing historical edit dates.
+    entry["contentHash"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    if previous:
+        updated = previous.get("updated", "")
+        updated_at = previous.get("updatedAt", "")
+        old_hash = previous.get("contentHash")
+        if old_hash and old_hash != entry["contentHash"]:
+            updated_at = max(updated_at, datetime.now().isoformat(timespec="microseconds"))
+            updated = updated_at[:10]
+        if updated > entry["date"]:
+            entry["updated"] = updated
+            if updated_at:
+                entry["updatedAt"] = updated_at
+    return entry
+
+
+def previous_notes() -> dict[str, dict[str, str]]:
+    """Read the last generated baseline; fall back to JS if JSON is absent."""
+    if JSON_OUTPUT.exists():
+        payload = JSON_OUTPUT.read_text(encoding="utf-8")
+    elif JS_OUTPUT.exists():
+        text = JS_OUTPUT.read_text(encoding="utf-8")
+        payload = text.split("window.BLOG_CONTENT = ", 1)[1].strip().removesuffix(";")
+    else:
+        return {}
+    data = json.loads(payload)
+    return {entry["file"]: entry for entry in data.get("notes", [])}
 
 
 def repo_entry(path: Path) -> dict[str, str]:
@@ -151,10 +182,10 @@ def gallery_entry(path: Path) -> dict:
 
 
 def collect() -> dict[str, list[dict]]:
-    
+    previous = previous_notes()
     notes = sorted(
-        (note_entry(path) for path in (CONTENT / "notes").glob("*.md")),
-        key=lambda item: (item["date"], item["file"]),
+        (note_entry(path, previous.get(path.name)) for path in (CONTENT / "notes").glob("*.md")),
+        key=lambda item: (item.get("updatedAt", item.get("updated", item["date"])), item["date"], item["file"]),
         reverse=True,
     )
     repos = sorted(

@@ -1379,6 +1379,12 @@ h2 {
   letter-spacing: 0.04em;
 }
 
+.meta-updated {
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .meta-type {
   color: var(--accent);
   font-size: 11px;

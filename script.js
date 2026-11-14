@@ -1708,6 +1708,18 @@ function sortByNewestDate(entries) {
     .map(({ entry }) => entry);
 }
 
+// 笔记按最近一次更新或创建日期排序；原始创建日期仍单独保留。
+function sortNotesByActivity(entries) {
+  return entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => {
+      const byDate = (b.entry.updatedAt || b.entry.updated || b.entry.date)
+        .localeCompare(a.entry.updatedAt || a.entry.updated || a.entry.date);
+      return byDate || a.index - b.index;
+    })
+    .map(({ entry }) => entry);
+}
+
 /*
   渲染仓库：
   1. 从自动内容清单里拿到状态、标题、文件名。
@@ -1780,6 +1792,7 @@ async function renderNoteCards(entries) {
             <h3>${escapeHtml(entry.title)}</h3>
             <p class="card-meta">
               <span class="meta-date">${escapeHtml(entry.date)}</span>
+              ${entry.updated ? `<span class="meta-updated">更新于 ${escapeHtml(entry.updated)}</span>` : ""}
               ${entry.type ? `<span class="meta-type">${escapeHtml(entry.type)}</span>` : ""}
               ${upcoming
                 ? `<span class="meta-time meta-upcoming">即将更新</span>`
@@ -1799,7 +1812,7 @@ async function renderNoteCards(entries) {
 }
 
 async function renderNotes() {
-  const entries = sortByNewestDate(getContentIndex().notes);
+  const entries = sortNotesByActivity(getContentIndex().notes);
   notesData = entries;
   renderNoteFilters(entries);
   const visibleEntries = activeNoteType === "all" ? entries : entries.filter((entry) => entry.type === activeNoteType);
@@ -2618,6 +2631,7 @@ async function openMarkdownDetail(kind, file, isCurrent = () => true) {
     meta = upcoming
       ? `${entry.date} · ${entry.type} · 即将更新`
       : `${entry.date} · ${entry.type} · 约 ${readingMinutes(markdown)} 分钟`;
+    if (entry.updated) meta += ` · 更新于 ${entry.updated}`;
   } else if (isUpdate) {
     meta = `${UPDATE_TYPE_LABELS[entry.type] || entry.type} · 更新日志`;
   } else {
