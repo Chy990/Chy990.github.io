@@ -73,6 +73,12 @@
   --reader-scrim: rgba(22, 22, 30, 0.3);
   /* 阅读纸距离屏幕边缘的距离，底部导航条会跟着它一起对齐。 */
   --reader-inset: clamp(10px, 2vw, 22px);
+  /*
+    详情页顶部条和正文与首页页头（.page-shell）同宽、左右对齐。
+    阅读层本身离屏幕边缘有 --reader-inset 和 1px 描边，这里的 100% 是阅读层内部宽度，
+    所以把这两段加回来，再减去页头两侧共 80px 的留白。
+  */
+  --reader-content-width: min(var(--shell), calc(100% + 2 * var(--reader-inset) + 2px - 80px));
   --photo-filter: saturate(0.94) contrast(1.02);
 
   /* 苹果设备系统字体：拉丁字母走 SF Pro，中文走苹方（PingFang SC）。 */
@@ -2363,7 +2369,7 @@ body.is-reader-open .reader-scrim {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
-  width: min(1040px, calc(100% - 56px));
+  width: var(--reader-content-width);
   margin: 12px auto 0;
   padding: 10px 16px;
   border: 1px solid var(--glass-border);
@@ -2433,7 +2439,7 @@ body.is-reader-open .reader-scrim {
 }
 
 .reader-panel {
-  width: min(1040px, calc(100% - 56px));
+  width: var(--reader-content-width);
   margin: 0 auto;
   padding: clamp(40px, 6vw, 76px) 0 0;
   background: transparent;
