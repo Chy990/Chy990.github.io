@@ -347,6 +347,24 @@ function galleryThumbnailSrc(src, folder = "_thumbs") {
     .replace(/\.(jpe?g|png)$/i, ".jpg");
 }
 
+// 公式在 Markdown 转换时渲染，避免转义、强调语法拆散 TeX 的下标和反斜杠。
+function renderMath(tex, displayMode = false) {
+  const tag = displayMode ? "div" : "span";
+  const className = displayMode ? "math-display" : "math-inline";
+  try {
+    if (!window.katex) throw new Error("KaTeX is unavailable");
+    return `<${tag} class="${className}">${window.katex.renderToString(tex, {
+      displayMode,
+      throwOnError: true,
+      trust: false,
+      maxExpand: 1000,
+    })}</${tag}>`;
+  } catch (error) {
+    // 单个公式有误或资源没有加载时，保留可读原文，不中断整篇笔记。
+    return `<${tag} class="${className} math-fallback">${escapeHtml(tex)}</${tag}>`;
+  }
+}
+
 function renderInlineMarkdown(value, { allowLinks = true } = {}) {
   const placeholders = [];
   const hold = (html) => {
@@ -368,6 +386,10 @@ function renderInlineMarkdown(value, { allowLinks = true } = {}) {
       return `${prefix}${hold(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`)}`;
     });
   }
+
+  // 支持 $...$ 和 \(...\)。先保护代码和链接；$20 / $30 这样的价格不作为公式。
+  text = text.replace(/\\\((.+?)\\\)|(?<![\\$])\$(?!\$)([^\s$](?:[^$\n]*?[^\s$])?)\$(?![\d$])/g,
+    (_, parenthesized, dollars) => hold(renderMath(parenthesized ?? dollars)));
 
   text = escapeHtml(text)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -399,9 +421,21 @@ function isStandaloneLink(line) {
 function markdownToPreview(markdown, maxLines = 5, { dateHeadings = false } = {}) {
   const lines = [];
   let inCode = false;
+  let mathEnd = "";
 
   for (const rawLine of markdown.split("\n")) {
     const line = rawLine.trim();
+
+    if (mathEnd) {
+      if (line === mathEnd) mathEnd = "";
+      continue;
+    }
+
+    if (!inCode && (line === "$$" || line === "\\[")) {
+      mathEnd = line === "$$" ? "$$" : "\\]";
+      continue;
+    }
+    if (!inCode && /^(?:\$\$.+\$\$|\\\[.+\\\])$/.test(line)) continue;
 
     if (isCodeFence(line)) {
       inCode = !inCode;
@@ -446,7 +480,7 @@ function markdownToPreview(markdown, maxLines = 5, { dateHeadings = false } = {}
 
 /*
   把 Markdown 转成详情页可阅读的 HTML。
-  这里仍然是轻量转换器，支持标题、段落、列表、代码块和常见行内格式，够个人 blog 起步使用。
+  轻量转换器：标题、段落、列表、代码块、图片、TeX 公式和常见行内格式。
 */
 function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
   const lines = markdown.split("\n");
@@ -462,7 +496,8 @@ function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
     }
   };
 
-  for (const rawLine of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const rawLine = lines[lineIndex];
     const line = rawLine.trimEnd();
 
     if (isCodeFence(line)) {
@@ -480,6 +515,25 @@ function markdownToHtml(markdown, { imageBasePath = "" } = {}) {
     if (inCode) {
       codeLines.push(rawLine);
       continue;
+    }
+
+    const trimmed = line.trim();
+    const singleMath = trimmed.match(/^\$\$(.+)\$\$$/) || trimmed.match(/^\\\[(.+)\\\]$/);
+    if (singleMath) {
+      closeList();
+      html += renderMath(singleMath[1].trim(), true);
+      continue;
+    }
+    if (trimmed === "$$" || trimmed === "\\[") {
+      const endDelimiter = trimmed === "$$" ? "$$" : "\\]";
+      const endIndex = lines.findIndex((item, index) => index > lineIndex && item.trim() === endDelimiter);
+      // 没有闭合时按普通文本显示，避免吞掉后续正文。
+      if (endIndex !== -1) {
+        closeList();
+        html += renderMath(lines.slice(lineIndex + 1, endIndex).join("\n"), true);
+        lineIndex = endIndex;
+        continue;
+      }
     }
 
     if (!line.trim()) {
@@ -558,6 +612,7 @@ function stripFrontmatter(markdown) {
 function readingMinutes(markdown) {
   const text = markdown
     .replace(/```[\s\S]*?```/g, " ")
+    .replace(/\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]/g, " ")
     // 图片路径和说明不算阅读字数。
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/[#>*_`\[\]()!-]/g, " ");

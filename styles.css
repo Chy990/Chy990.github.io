@@ -2611,6 +2611,32 @@ body.is-reader-open .reader-scrim {
   font-size: inherit;
 }
 
+/* TeX 公式：跟随正文配色；长公式只在自身区域横向滚动。 */
+.reader-body .math-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 1.4em 0 1.8em;
+  padding: 0.3em 0.15em;
+  color: var(--ink);
+}
+
+.reader-body .katex {
+  font-size: 1.05em;
+  letter-spacing: normal;
+}
+
+.reader-body .katex-display {
+  width: max-content;
+  min-width: 100%;
+  margin: 0.5em 0;
+}
+
+.reader-body .math-fallback {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .reader-body blockquote {
   margin: 0 0 1.6em;
   padding: 0.2em 0 0.2em 1.4em;
