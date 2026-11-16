@@ -1705,15 +1705,21 @@ h2 {
 }
 
 .gallery-item figure {
+  /*
+    外框圆角和内边距用变量管理，照片圆角由它们推算（见下方 img），
+    保证照片和外框是同心圆角。各断点只改这两个变量即可。
+  */
+  --album-radius: var(--radius-xl);
+  --album-pad: 10px;
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   margin: 0;
-  padding: 10px 10px 0;
+  padding: var(--album-pad) var(--album-pad) 0;
   overflow: hidden;
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--album-radius);
   background: var(--glass);
   box-shadow: var(--glass-highlight), 0 18px 46px -36px rgba(20, 22, 30, 0.4);
   transition:
@@ -1728,7 +1734,8 @@ h2 {
   z-index: 1;
   width: 100%;
   height: 440px;
-  border-radius: var(--radius-md);
+  /* 同心圆角：外框半径 − 内边距 − 1px 边框。 */
+  border-radius: max(0px, calc(var(--album-radius) - var(--album-pad) - 1px));
   object-fit: cover;
   filter: var(--photo-filter);
   transition: transform 800ms var(--ease-liquid);
@@ -3400,8 +3407,7 @@ body.is-reader-open .reader-scrim {
   }
 
   .gallery-item figure {
-    padding: 7px 7px 0;
-    border-radius: var(--radius-lg);
+    --album-radius: var(--radius-lg);
   }
 
   .gallery-item figcaption {
@@ -3792,7 +3798,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
 .gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .gallery-grid > .gallery-item, .gallery-grid > .gallery-item:nth-child(n) { grid-column: auto; }
 .gallery-grid > .gallery-item[hidden] { display: none; }
-.gallery-item figure, .gallery-item:nth-child(n) figure { display: flex; flex-direction: column; min-height: 0; padding: 8px 8px 0; }
+.gallery-item figure, .gallery-item:nth-child(n) figure { display: flex; flex-direction: column; min-height: 0; --album-pad: 8px; }
 .gallery-item img, .gallery-item:nth-child(n) img { width: 100%; height: auto; min-height: 0; aspect-ratio: 4 / 3; }
 .gallery-item figcaption, .gallery-item:nth-child(n) figcaption { display: block; margin-top: auto; padding: 14px 5px 16px; border: 0; }
 .gallery-item:nth-child(n) figcaption::after { display: none; }
@@ -3816,7 +3822,7 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   .gallery-years { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 3px; }
   .gallery-years button { flex: 0 0 auto; }
   .gallery-grid { gap: 10px; }
-  .gallery-item figure, .gallery-item:nth-child(n) figure { padding: 6px 6px 0; }
+  .gallery-item figure, .gallery-item:nth-child(n) figure { --album-pad: 6px; }
   .gallery-item figcaption, .gallery-item:nth-child(n) figcaption { padding: 10px 3px 12px; }
   .gallery-item figcaption strong { margin-bottom: 0; font-size: 18px; }
   .gallery-item figcaption small, .gallery-cta { display: none; }
