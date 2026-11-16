@@ -2538,10 +2538,13 @@ body.is-reader-open .reader-scrim {
   margin-top: 0;
 }
 
+/*
+  正文段落不用 text-wrap: pretty：Safari / iPad 的 WebKit 会对整段做均衡断行，
+  每行都故意不排满，右侧和上方分隔线之间空出一截。中文逐字可断，普通断行就能贴齐右边。
+*/
 .reader-body p {
   margin: 0 0 1.4em;
   color: var(--ink-2);
-  text-wrap: pretty;
 }
 
 .reader-body a {
