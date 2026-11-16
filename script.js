@@ -422,6 +422,9 @@ function markdownToPreview(markdown, maxLines = 5, { dateHeadings = false } = {}
     // 单独一行的仓库链接在详情页更有价值，预览里跳过，避免 Markdown 原文挤乱卡片。
     if (isStandaloneLink(line)) continue;
 
+    // 单独一行的图片只在详情页显示，卡片预览里不露出 ![...](...) 原文。
+    if (/^!\[[^\]]*\]\([^)]*\)$/.test(line)) continue;
+
     lines.push({ kind: "text", text: line });
     if (lines.length >= maxLines) break;
   }
@@ -555,6 +558,8 @@ function stripFrontmatter(markdown) {
 function readingMinutes(markdown) {
   const text = markdown
     .replace(/```[\s\S]*?```/g, " ")
+    // 图片路径和说明不算阅读字数。
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/[#>*_`\[\]()!-]/g, " ");
   const cjk = (text.match(/[\u3400-\u9fff]/g) || []).length;
   const words = (text.replace(/[\u3400-\u9fff]/g, " ").match(/[A-Za-z0-9]+/g) || []).length;
@@ -1885,7 +1890,8 @@ async function buildSiteSearch() {
   ];
   siteSearchEntries = await Promise.all(groups.flatMap(({ entries, kind, folder, label }) => entries.map(async (entry) => {
     const markdown = stripFrontmatter(await readTextSafe(`./content/${folder}/${entry.file}`));
-    const body = markdown.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    // 图片只保留说明文字，去掉 |wide 这类版式标记，搜索时能按图片说明找到笔记。
+    const body = markdown.replace(/!\[([^\]|]*)[^\]]*\]\([^)]*\)/g, "$1")
       .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
       .replace(/[#*_`>~|]/g, " ").replace(/\s+/g, " ").trim();
     const meta = [entry.date, entry.type, entry.place, entry.status].filter(Boolean).join(" · ");
@@ -2789,7 +2795,10 @@ async function openMarkdownDetail(kind, file, isCurrent = () => true) {
   const markdown = await readTextSafe(path);
   const upcoming = isMissingText(path);
   const body = markdown
-    ? markdownToHtml(stripFirstHeading(markdown))
+    ? markdownToHtml(stripFirstHeading(markdown), {
+        // 笔记配图和相册旧写法一样，路径相对 content/notes/，例如 2026_11_16_xxx/1.jpg。
+        imageBasePath: isNote ? "./content/notes/" : "",
+      })
     : upcoming
       ? `<p class="reader-upcoming">${isNote ? UPCOMING_NOTE_TEXT : "这篇内容即将更新，正文还在路上，过几天再来看看吧。"}</p>`
       : "<p>内容暂时无法读取，请刷新页面或重新运行 start-blog.command。</p>";
