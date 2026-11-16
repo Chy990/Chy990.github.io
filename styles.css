@@ -2675,6 +2675,62 @@ body.is-reader-open .reader-scrim {
   visibility: hidden;
 }
 
+/* 相册详情：引言之后的缩略图网格。格子统一为正方形，点开后在灯箱里看完整比例。 */
+.reader-body .album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(30%, 168px), 1fr));
+  gap: clamp(6px, 1vw, 10px);
+  margin: 2.2em 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reader-body .album-grid:first-child {
+  margin-top: 0;
+}
+
+.reader-body .album-grid li {
+  margin: 0;
+  padding: 0;
+}
+
+.album-tile {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--glass);
+  color: inherit;
+  cursor: zoom-in;
+}
+
+.album-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  object-fit: cover;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) {
+  .album-tile:hover img {
+    transform: scale(1.04);
+  }
+}
+
+.album-tile:focus-visible:where(:not(.is-quiet-focus)) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.album-tile img.is-lightbox-source {
+  visibility: hidden;
+}
+
 .reader-end {
   display: flex;
   align-items: center;
@@ -2758,6 +2814,95 @@ body.is-reader-open .reader-scrim {
   background: rgba(10, 12, 18, 0.9);
   outline: none;
   transform: scale(1.06);
+}
+
+/* 相册翻页：只有一组多张时才出现。手机上靠左右滑动，按钮仍保留给不方便滑动的人。 */
+.image-lightbox.has-nav {
+  /* 给计数留出底部空间，宽屏再给两侧按钮留位置。 */
+  padding-bottom: calc(clamp(14px, 3vw, 34px) + 34px);
+  touch-action: pinch-zoom;
+}
+
+@media (min-width: 760px) {
+  .image-lightbox.has-nav {
+    padding-inline: 88px;
+  }
+}
+
+.image-lightbox__nav,
+.image-lightbox__counter {
+  display: none;
+}
+
+.image-lightbox.has-nav .image-lightbox__nav {
+  position: fixed;
+  top: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-top: -23px;
+  padding: 0 0 3px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(10, 12, 18, 0.62);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.image-lightbox__nav.is-prev {
+  left: max(16px, env(safe-area-inset-left));
+}
+
+.image-lightbox__nav.is-next {
+  right: max(16px, env(safe-area-inset-right));
+}
+
+.image-lightbox__nav:hover:not(:disabled),
+.image-lightbox__nav:focus-visible {
+  border-color: rgba(255, 255, 255, 0.56);
+  background: rgba(10, 12, 18, 0.9);
+  outline: none;
+  transform: scale(1.06);
+}
+
+.image-lightbox.has-nav .image-lightbox__nav:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.image-lightbox.has-nav .image-lightbox__counter {
+  position: fixed;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 1;
+  display: block;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+@media (max-width: 759px) {
+  .image-lightbox.has-nav .image-lightbox__nav {
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: 40px;
+    height: 40px;
+    margin-top: 0;
+    font-size: 26px;
+  }
 }
 
 .content-link,

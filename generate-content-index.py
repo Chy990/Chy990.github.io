@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -133,30 +134,29 @@ def update_entry(path: Path) -> dict[str, str]:
     }
 
 
-IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+[\"'][^\"']*[\"'])?\s*\)")
+GALLERY_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+
+
+def natural_key(name: str) -> list:
+    """Sort 'mel2' before 'mel10' by comparing digit runs as numbers."""
+    return [int(part) if part.isdigit() else part.casefold() for part in re.split(r"(\d+)", name)]
 
 
 def gallery_photos(path: Path) -> list[dict[str, str]]:
-
-    try:
-        text = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        return []
-
-    photos: list[dict[str, str]] = []
-    seen: set[str] = set()
-
-    for match in IMAGE_PATTERN.finditer(text):
-        alt = match.group(1).split("|")[0].strip()
-        src = match.group(2).strip()
-        if not src or src in seen:
-            continue
-        if src.startswith(("http://", "https://", "data:")):
-            continue
-        seen.add(src)
-        photos.append({"src": src, "alt": alt})
-
-    return photos
+    """List every photo in the album's same-name folder, in natural filename order."""
+    folder = path.parent / path.stem
+    files = sorted(
+        (
+            item
+            for item in folder.iterdir()
+            if item.is_file()
+            and not item.name.startswith(".")
+            and item.suffix.lower() in GALLERY_IMAGE_EXTENSIONS
+        ),
+        key=lambda item: natural_key(item.name),
+    )
+    # macOS may hand back decomposed (NFD) names; URLs and Markdown use NFC.
+    return [{"src": unicodedata.normalize("NFC", f"{path.stem}/{item.name}"), "alt": ""} for item in files]
 
 
 def gallery_entry(path: Path) -> dict:
@@ -170,14 +170,15 @@ def gallery_entry(path: Path) -> dict:
         year, month, day = compact_date_match.groups()
         date = frontmatter.get("date", f"{year}-{month}-{day}")
 
+    photos = gallery_photos(path)
     return {
         "date": date,
         "place": frontmatter.get("place", ""),
-        "cover": frontmatter.get("cover", ""),
+        # Without a cover in the frontmatter, the first photo becomes the cover.
+        "cover": frontmatter.get("cover", "") or (photos[0]["src"] if photos else ""),
         "title": heading or title_from_slug(path.stem),
         "file": path.name,
-        
-        "photos": gallery_photos(path),
+        "photos": photos,
     }
 
 

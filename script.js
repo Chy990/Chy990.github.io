@@ -337,12 +337,13 @@ function resolveContentImageSrc(src, imageBasePath = "") {
   return `${imageBasePath}${src}`;
 }
 
-function galleryThumbnailSrc(src) {
+// folder 为 _thumbs（长边 1600，大图过渡用）或 _grid（短边 480，相册网格用），由 generate-gallery-thumbnails.py 生成。
+function galleryThumbnailSrc(src, folder = "_thumbs") {
   if (!src.startsWith("./content/gallery/")) return src;
-  if (src.startsWith("./content/gallery/_thumbs/")) return src;
+  if (/^\.\/content\/gallery\/_(thumbs|grid)\//.test(src)) return src;
 
   return src
-    .replace("./content/gallery/", "./content/gallery/_thumbs/")
+    .replace("./content/gallery/", `./content/gallery/${folder}/`)
     .replace(/\.(jpe?g|png)$/i, ".jpg");
 }
 
@@ -1852,7 +1853,7 @@ async function renderGallery() {
   ].join("");
   const cards = await Promise.all(entries.map(async (entry) => {
     const markdown = stripFrontmatter(await readTextSafe(`./content/gallery/${entry.file}`));
-    const photoCount = (markdown.match(/^!\[/gm) || []).length;
+    const photoCount = entry.photos?.length || 0;
     const coverSrc = entry.cover ? `./content/gallery/${entry.cover}` : "";
     return `
       <a class="content-link gallery-item" href="${detailHref("gallery", entry.file)}" data-year="${escapeHtml((entry.date || "").slice(0, 4))}" data-reveal>
@@ -2480,23 +2481,79 @@ function getImageLightbox() {
   lightbox.innerHTML = `
     <div class="image-lightbox__backdrop"></div>
     <button class="image-lightbox__close" type="button" aria-label="关闭原图查看">×</button>
+    <button class="image-lightbox__nav is-prev" type="button" data-lightbox-step="-1" aria-label="上一张">‹</button>
+    <button class="image-lightbox__nav is-next" type="button" data-lightbox-step="1" aria-label="下一张">›</button>
+    <p class="image-lightbox__counter" aria-live="polite"></p>
     <img class="image-lightbox__image" alt="" />
   `;
+
+  // 左右滑动翻页。滑动后浏览器可能还会补发一次 click，用 suppressClick 吞掉，避免顺手把灯箱关了。
+  let swipe = null;
+  lightbox.addEventListener("pointerdown", (event) => {
+    if (!event.isPrimary) return;
+    swipe = { x: event.clientX, y: event.clientY, id: event.pointerId };
+    if (imageLightboxSession) imageLightboxSession.suppressClick = false;
+  });
+  lightbox.addEventListener("pointerup", (event) => {
+    if (!swipe || event.pointerId !== swipe.id) return;
+    const dx = event.clientX - swipe.x;
+    const dy = event.clientY - swipe.y;
+    swipe = null;
+    if (!imageLightboxSession || Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    imageLightboxSession.suppressClick = true;
+    stepImageLightbox(dx < 0 ? 1 : -1);
+  });
+  lightbox.addEventListener("pointercancel", () => {
+    swipe = null;
+  });
+
   document.body.append(lightbox);
   return lightbox;
 }
 
 // 使用预览图的位置做缩放动画，原图加载完成后再替换，避免等待或闪白。
 function sizeLightboxImage(session) {
-  const padding = parseFloat(getComputedStyle(session.lightbox).paddingTop) * 2;
-  const width = Math.min(window.innerWidth - padding, (window.innerHeight - padding) * session.ratio);
+  const style = getComputedStyle(session.lightbox);
+  const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const paddingY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  const width = Math.min(window.innerWidth - paddingX, (window.innerHeight - paddingY) * session.ratio);
   session.image.style.width = `${Math.max(1, width)}px`;
   session.image.style.height = `${Math.max(1, width / session.ratio)}px`;
 }
 
-function lightboxSourceTransform(image, sourceRect) {
+// 动画结束时的裁切范围：向外留足空间，让大图的阴影不被裁掉。
+const LIGHTBOX_OPEN_CLIP = "inset(-40% -40% -40% -40% round 0px)";
+
+/*
+  计算“从缩略图长出来 / 缩回缩略图”的起止形态。
+  普通配图（contain）沿用整体缩放；相册网格是 object-fit: cover 的方形裁切，
+  直接拉伸会变形，所以先按原比例等比缩放到铺满格子，再用 clip-path 裁成格子的样子。
+*/
+function lightboxSourceFrame(source, image) {
+  const tile = source?.isConnected ? source.getBoundingClientRect() : null;
+  if (!(tile?.width > 0 && tile?.height > 0)) return null;
   const rect = image.getBoundingClientRect();
-  return `translate(${sourceRect.left - rect.left}px, ${sourceRect.top - rect.top}px) scale(${sourceRect.width / rect.width}, ${sourceRect.height / rect.height})`;
+
+  if (getComputedStyle(source).objectFit !== "cover") {
+    return {
+      tile,
+      transform: `translate(${tile.left - rect.left}px, ${tile.top - rect.top}px) scale(${tile.width / rect.width}, ${tile.height / rect.height})`,
+      clip: null,
+    };
+  }
+
+  const ratio = rect.width / rect.height;
+  const width = ratio > tile.width / tile.height ? tile.height * ratio : tile.width;
+  const height = width / ratio;
+  const scale = width / rect.width;
+  const insetX = (((width - tile.width) / 2 / width) * 100).toFixed(3);
+  const insetY = (((height - tile.height) / 2 / height) * 100).toFixed(3);
+  const radius = (parseFloat(getComputedStyle(source).borderTopLeftRadius) || 0) / scale;
+  return {
+    tile,
+    transform: `translate(${tile.left - (width - tile.width) / 2 - rect.left}px, ${tile.top - (height - tile.height) / 2 - rect.top}px) scale(${scale})`,
+    clip: `inset(${insetY}% ${insetX}% ${insetY}% ${insetX}% round ${radius.toFixed(2)}px)`,
+  };
 }
 
 function animateLightbox(session, frames, duration) {
@@ -2513,30 +2570,108 @@ function cancelLightboxAnimations(session) {
   session.animations = [];
 }
 
+function isLightboxSessionIdle(session) {
+  return imageLightboxSession === session && !session.closing;
+}
+
+// 同一个 [data-lightbox-group] 里的图片组成一组，可以左右翻看；单张配图自成一组。
+function lightboxGroup(sourceButton) {
+  const group = sourceButton?.closest("[data-lightbox-group]");
+  if (group) return [...group.querySelectorAll("[data-lightbox-src]")];
+  return sourceButton ? [sourceButton] : [];
+}
+
+function loadLightboxImage(url) {
+  const loader = new Image();
+  loader.src = url;
+  return loader.decode().then(() => loader);
+}
+
+/*
+  切到组里的第 index 张：先用已经加载好的缩略图顶上，
+  再依次换成 _thumbs 过渡图和原图；翻得很快时，过期的加载结果会被丢弃。
+*/
+function setLightboxSlide(session, index, fallback = {}) {
+  const button = session.group[index] || null;
+  const src = button?.getAttribute("data-lightbox-src") || fallback.src || "";
+  const preview = button?.getAttribute("data-lightbox-preview") || "";
+  const alt = button ? button.getAttribute("data-lightbox-alt") || "" : fallback.alt || "";
+
+  session.source?.classList.remove("is-lightbox-source");
+  session.index = index;
+  session.sourceButton = button;
+  session.source = button?.querySelector("img") || null;
+  session.source?.classList.add("is-lightbox-source");
+
+  const source = session.source;
+  const sourceReady = source?.complete && source.naturalWidth > 0;
+  if (sourceReady) session.ratio = source.naturalWidth / source.naturalHeight;
+  session.image.src = sourceReady ? source.currentSrc : preview || src;
+  session.image.alt = alt;
+
+  const total = session.group.length;
+  session.counter.textContent = total > 1 ? `${index + 1} / ${total}` : "";
+  session.prevButton.disabled = index <= 0;
+  session.nextButton.disabled = index >= total - 1;
+  sizeLightboxImage(session);
+
+  const token = {};
+  session.slideToken = token;
+  clearTimeout(session.loadTimer);
+  const isCurrentSlide = () => isLightboxSessionIdle(session) && session.slideToken === token;
+  const show = (url) => loadLightboxImage(url).then((loader) => {
+    if (!isCurrentSlide()) return;
+    session.ratio = loader.naturalWidth / loader.naturalHeight;
+    session.image.src = url;
+    // 入场 / 翻页动画进行中不改尺寸，动画结束后会统一再量一次。
+    if (!session.animations.length) sizeLightboxImage(session);
+  });
+
+  const previewStep = preview && preview !== session.image.src ? show(preview).catch(() => {}) : Promise.resolve();
+  previewStep.then(() => {
+    if (!isCurrentSlide()) return;
+    // 原图可能有十几 MB：停留片刻再加载，快速翻看时不浪费流量。原图失败时保留当前图。
+    session.loadTimer = setTimeout(() => show(src).catch(() => {}), preview ? 400 : 0);
+  });
+
+  // 预先下载相邻两张的过渡图，翻页时几乎立刻清晰。
+  [index - 1, index + 1].forEach((neighbor) => {
+    const url = session.group[neighbor]?.getAttribute("data-lightbox-preview");
+    if (url) loadLightboxImage(url).catch(() => {});
+  });
+}
+
 function openImageLightbox(src, alt = "", sourceButton = null) {
   closeImageLightbox({ immediate: true });
   const lightbox = getImageLightbox();
-  const image = lightbox.querySelector(".image-lightbox__image");
-  const source = sourceButton?.querySelector("img");
-  const sourceRect = source?.getBoundingClientRect();
-  const hasSource = sourceRect?.width > 0 && sourceRect?.height > 0;
+  const group = lightboxGroup(sourceButton);
   const session = {
-    lightbox, image, source, sourceButton,
+    lightbox,
+    group,
+    image: lightbox.querySelector(".image-lightbox__image"),
     backdrop: lightbox.querySelector(".image-lightbox__backdrop"),
     closeButton: lightbox.querySelector(".image-lightbox__close"),
-    ratio: source?.naturalWidth ? source.naturalWidth / source.naturalHeight : hasSource ? sourceRect.width / sourceRect.height : 1,
+    prevButton: lightbox.querySelector(".image-lightbox__nav.is-prev"),
+    nextButton: lightbox.querySelector(".image-lightbox__nav.is-next"),
+    counter: lightbox.querySelector(".image-lightbox__counter"),
+    chrome: [...lightbox.querySelectorAll(".image-lightbox__close, .image-lightbox__nav, .image-lightbox__counter")],
+    index: 0,
+    source: null,
+    sourceButton: null,
+    ratio: 1,
     animations: [],
     closing: false,
+    suppressClick: false,
+    slideToken: null,
+    loadTimer: 0,
   };
   imageLightboxSession = session;
-  image.src = source?.currentSrc || src;
-  image.alt = alt;
-  sizeLightboxImage(session);
+  lightbox.classList.toggle("has-nav", group.length > 1);
   lightbox.classList.add("is-open");
   lightbox.setAttribute("aria-hidden", "false");
   document.body.classList.add("is-lightbox-open");
   syncNavDockInert();
-  source?.classList.add("is-lightbox-source");
+  setLightboxSlide(session, Math.max(0, group.indexOf(sourceButton)), { src, alt });
 
   // 灯箱打开时，把阅读层也设为 inert，Tab 不会跑到背后的正文里。
   const reader = document.querySelector("#reader");
@@ -2545,20 +2680,46 @@ function openImageLightbox(src, alt = "", sourceButton = null) {
   session.closeButton.focus({ preventScroll: true });
 
   if (!prefersReducedMotion()) {
+    const frame = lightboxSourceFrame(session.source, session.image);
+    const imageFrames = !frame
+      ? [{ transform: "scale(0.96)" }, { transform: "none" }]
+      : frame.clip
+        ? [{ transform: frame.transform, clipPath: frame.clip }, { transform: "none", clipPath: LIGHTBOX_OPEN_CLIP }]
+        : [{ transform: frame.transform }, { transform: "none" }];
     animateLightbox(session, [
-      [image, [{ transform: hasSource ? lightboxSourceTransform(image, sourceRect) : "scale(0.96)" }, { transform: "none" }]],
+      [session.image, imageFrames],
       [session.backdrop, [{ opacity: 0 }, { opacity: 1 }]],
-      [session.closeButton, [{ opacity: 0 }, { opacity: 1 }]],
+      ...session.chrome.map((element) => [element, [{ opacity: 0 }, { opacity: 1 }]]),
     ], 320).then(() => {
-      if (imageLightboxSession === session && !session.closing) cancelLightboxAnimations(session);
+      if (!isLightboxSessionIdle(session)) return;
+      cancelLightboxAnimations(session);
+      sizeLightboxImage(session);
     });
   }
+}
 
-  const original = new Image();
-  original.src = src;
-  original.decode().then(() => {
-    if (imageLightboxSession === session && !session.closing) image.src = src;
-  }).catch(() => {}); // 原图失败时仍保留可见的预览图。
+function stepImageLightbox(delta) {
+  const session = imageLightboxSession;
+  if (!session || session.closing || session.group.length < 2) return;
+  const index = session.index + delta;
+  if (index < 0 || index >= session.group.length) return;
+
+  cancelLightboxAnimations(session);
+  setLightboxSlide(session, index);
+  // 让背后网格跟着滚到当前这张，关闭时才能缩回正确的位置。
+  session.sourceButton?.scrollIntoView({ block: "nearest" });
+  if (document.activeElement === session.prevButton && session.prevButton.disabled) session.nextButton.focus({ preventScroll: true });
+  if (document.activeElement === session.nextButton && session.nextButton.disabled) session.prevButton.focus({ preventScroll: true });
+
+  if (!prefersReducedMotion()) {
+    animateLightbox(session, [
+      [session.image, [{ transform: `translateX(${delta * 36}px)`, opacity: 0 }, { transform: "none", opacity: 1 }]],
+    ], 240).then(() => {
+      if (!isLightboxSessionIdle(session) || session.index !== index) return;
+      cancelLightboxAnimations(session);
+      sizeLightboxImage(session);
+    });
+  }
 }
 
 function closeImageLightbox({ immediate = false } = {}) {
@@ -2568,6 +2729,7 @@ function closeImageLightbox({ immediate = false } = {}) {
   const finish = () => {
     if (imageLightboxSession !== session) return;
     cancelLightboxAnimations(session);
+    clearTimeout(session.loadTimer);
     session.lightbox.classList.remove("is-open");
     session.lightbox.setAttribute("aria-hidden", "true");
     document.body.classList.remove("is-lightbox-open");
@@ -2590,19 +2752,25 @@ function closeImageLightbox({ immediate = false } = {}) {
   }
 
   // 中途点击关闭时从当前动画帧折返，不跳到完全放大后的状态。
-  const transform = getComputedStyle(session.image).transform;
+  const imageStyle = getComputedStyle(session.image);
+  const transform = imageStyle.transform;
+  const imageOpacity = imageStyle.opacity;
+  const clipPath = imageStyle.clipPath;
   const backdropOpacity = getComputedStyle(session.backdrop).opacity;
-  const buttonOpacity = getComputedStyle(session.closeButton).opacity;
+  const chromeOpacity = session.chrome.map((element) => getComputedStyle(element).opacity);
   cancelLightboxAnimations(session);
-  const sourceRect = session.source?.isConnected ? session.source.getBoundingClientRect() : null;
-  const hasTarget = sourceRect?.width > 0 && sourceRect?.height > 0 && sourceRect.bottom > 0 && sourceRect.top < window.innerHeight;
+  const frame = lightboxSourceFrame(session.source, session.image);
+  const hasTarget = frame && frame.tile.bottom > 0 && frame.tile.top < window.innerHeight;
+  const from = { transform, opacity: imageOpacity };
+  const to = { transform: hasTarget ? frame.transform : "scale(0.96)", opacity: hasTarget ? 1 : 0 };
+  if (hasTarget && frame.clip) {
+    from.clipPath = clipPath && clipPath !== "none" ? clipPath : LIGHTBOX_OPEN_CLIP;
+    to.clipPath = frame.clip;
+  }
   animateLightbox(session, [
-    [session.image, [
-      { transform, opacity: 1 },
-      { transform: hasTarget ? lightboxSourceTransform(session.image, sourceRect) : "scale(0.96)", opacity: hasTarget ? 1 : 0 },
-    ]],
+    [session.image, [from, to]],
     [session.backdrop, [{ opacity: backdropOpacity }, { opacity: 0 }]],
-    [session.closeButton, [{ opacity: buttonOpacity }, { opacity: 0 }]],
+    ...session.chrome.map((element, index) => [element, [{ opacity: chromeOpacity[index] }, { opacity: 0 }]]),
   ], 260).then(finish);
 }
 
@@ -2654,18 +2822,33 @@ async function openMarkdownDetail(kind, file, isCurrent = () => true) {
   return true;
 }
 
+// 相册详情页的缩略图网格：小格子用 _grid 小图，点开后先显示 _thumbs 过渡图，再换原图。
+function albumGridHtml(title, photos) {
+  if (!photos.length) return "";
+  const total = photos.length;
+  const tiles = photos.map((photo, index) => {
+    const src = resolveContentImageSrc(photo.src, "./content/gallery/");
+    const label = photo.alt || `${title} 第 ${index + 1} 张`;
+    return `<li><button class="album-tile" type="button" data-lightbox-src="${escapeHtml(src)}" data-lightbox-preview="${escapeHtml(galleryThumbnailSrc(src))}" data-lightbox-alt="${escapeHtml(label)}" aria-label="查看照片：${escapeHtml(label)}（${index + 1} / ${total}）"><img src="${escapeHtml(galleryThumbnailSrc(src, "_grid"))}" data-fallback-src="${escapeHtml(galleryThumbnailSrc(src))}" alt="" loading="lazy" decoding="async" /></button></li>`;
+  });
+  return `<ul class="album-grid" data-lightbox-group aria-label="${escapeHtml(title)}的照片，共 ${total} 张">${tiles.join("")}</ul>`;
+}
+
 async function openGalleryDetail(file, isCurrent = () => true) {
   const entry = galleryData.find((item) => item.file === file);
   if (!entry) return false;
 
   const markdown = stripFrontmatter(await readTextSafe(`./content/gallery/${file}`));
-  const photoCount = (markdown.match(/^!\[/gm) || []).length;
-  const body = markdown
-    ? markdownToHtml(stripFirstHeading(markdown), { imageBasePath: "./content/gallery/" })
-    : "<p>相册内容暂时无法读取，请刷新页面或重新运行 start-blog.command。</p>";
+  const photos = entry.photos || [];
+  const photoCount = photos.length;
+  // 照片由生成脚本从同名文件夹扫描得到；Markdown 里若还留着图片行，这里忽略，避免和网格重复。
+  const intro = markdown
+    ? markdownToHtml(stripFirstHeading(markdown).replace(/^\s*!\[[^\]]*\]\([^)]*\)\s*$/gm, ""))
+    : "";
+  const body = `${intro}${albumGridHtml(entry.title, photos)}`;
 
-  const bodyHtml = body.trim() ? body : "<p>这本相册暂时没有正文。</p>";
-  if (!body.trim()) console.warn(`相册内容为空：${file}`, { markdownLength: markdown.length });
+  const bodyHtml = body.trim() ? body : "<p>这本相册暂时没有内容。</p>";
+  if (!markdown) console.warn(`相册文字为空或无法读取：${file}`);
   if (!isCurrent()) return false;
 
   setReader({
@@ -3274,8 +3457,20 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const stepButton = event.target.closest("[data-lightbox-step]");
+  if (stepButton) {
+    event.preventDefault();
+    stepImageLightbox(Number(stepButton.getAttribute("data-lightbox-step")));
+    return;
+  }
+
   if (event.target.closest(".image-lightbox")) {
     event.preventDefault();
+    // 刚刚是一次左右滑动，不是点击关闭。
+    if (imageLightboxSession?.suppressClick) {
+      imageLightboxSession.suppressClick = false;
+      return;
+    }
     closeImageLightbox();
     return;
   }
@@ -3360,6 +3555,14 @@ wideTouchQuery.addEventListener("change", syncNavPlacement);
 window.addEventListener("scroll", handlePageScroll, { passive: true });
 window.addEventListener("hashchange", handleRoute);
 window.addEventListener("popstate", handleRoute);
+
+// 灯箱里用 ← → 翻看同组照片。
+document.addEventListener("keydown", (event) => {
+  if (!imageLightboxSession || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  event.preventDefault();
+  stepImageLightbox(event.key === "ArrowRight" ? 1 : -1);
+});
 
 // Esc：先关灯箱，再关阅读层。
 document.addEventListener("keydown", (event) => {
