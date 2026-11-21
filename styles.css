@@ -910,13 +910,13 @@ h1 em {
   transform: translateX(-50%) rotate(45deg);
 }
 
-.term-wrap:hover .term-tip,
-.term:focus-visible + .term-tip,
-.term[aria-expanded="true"] + .term-tip {
+.term-wrap:not(.reader-term):hover .term-tip,
+.term-wrap:not([data-tip-dismissed]) > .term:focus-visible + .term-tip,
+.term-wrap:not([data-tip-dismissed]) > .term[aria-expanded="true"] + .term-tip {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translate(-50%, 0) scale(1);
+  transform: var(--term-tip-open-transform, translate(-50%, 0) scale(1));
 }
 
 .term-tip-label,
@@ -2554,6 +2554,59 @@ body.is-reader-open .reader-scrim {
   color: var(--ink-2);
 }
 
+.reader-term > .term {
+  padding-right: 14px;
+  color: inherit;
+  line-height: 1.2;
+}
+
+.reader-term .term-badge {
+  top: -0.3em;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  font-size: 8px;
+}
+
+.reader-term > .term-tip {
+  --term-tip-open-transform: none;
+  bottom: calc(100% + 6px);
+  left: var(--reader-term-tip-left, 0px);
+  width: min(330px, calc(100vw - 64px));
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
+  transform: none;
+  transition: opacity 150ms ease, visibility 150ms;
+}
+
+.reader-term[data-tip-below] > .term-tip {
+  top: calc(100% + 6px);
+  bottom: auto;
+}
+
+/* 鼠标经过角标与释义之间的间隙时，释义保持可见。 */
+.reader-term > .term-tip::after {
+  inset: auto 0 -6px;
+  width: auto;
+  height: 6px;
+  border: 0;
+  background: transparent;
+  transform: none;
+}
+
+.reader-term[data-tip-below] > .term-tip::after {
+  top: -6px;
+  bottom: auto;
+}
+
+@media (hover: hover) {
+  .reader-term:not([data-tip-dismissed]):hover > .term-tip {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
+
 .reader-body a {
   color: var(--accent);
   font-weight: 500;
@@ -3185,18 +3238,18 @@ body.is-reader-open .reader-scrim {
     line-height: 1.85;
   }
 
-  .term-tip {
+  .term-wrap:not(.reader-term) > .term-tip {
     width: min(320px, calc(100vw - 48px));
     transform: translate(calc(-50% + 44px), 8px) scale(0.97);
   }
 
-  .term-tip::after {
+  .term-wrap:not(.reader-term) > .term-tip::after {
     left: calc(50% - 44px);
   }
 
-  .term-wrap:hover .term-tip,
-  .term:focus-visible + .term-tip,
-  .term[aria-expanded="true"] + .term-tip {
+  .term-wrap:not(.reader-term):hover .term-tip,
+  .term-wrap:not(.reader-term) > .term:focus-visible + .term-tip,
+  .term-wrap:not(.reader-term) > .term[aria-expanded="true"] + .term-tip {
     transform: translate(calc(-50% + 44px), 0) scale(1);
   }
 

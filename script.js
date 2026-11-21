@@ -365,7 +365,18 @@ function renderMath(tex, displayMode = false) {
   }
 }
 
-function renderInlineMarkdown(value, { allowLinks = true } = {}) {
+const inlineCodePattern = /`([^`]+)`/g;
+const inlineLinkPattern = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+const inlineMathPattern = /\\\((.+?)\\\)|(?<![\\$])\$(?!\$)([^\s$](?:[^$\n]*?[^\s$])?)\$(?![\d$])/g;
+const inlineTermPattern = /\{\{([^{}|\r\n]+)\|([^{}\r\n]+)\}\}/g;
+const inlineTermScan = new RegExp(
+  [inlineCodePattern, inlineLinkPattern, inlineMathPattern, inlineTermPattern]
+    .map((pattern) => pattern.source).join("|"),
+  "g",
+);
+let readerTermCount = 0;
+
+function renderInlineMarkdown(value, { allowLinks = true, allowTermTips = true } = {}) {
   const placeholders = [];
   const hold = (html) => {
     const token = `@@MD_PLACEHOLDER_${placeholders.length}@@`;
@@ -373,10 +384,20 @@ function renderInlineMarkdown(value, { allowLinks = true } = {}) {
     return token;
   };
 
-  let text = value.replace(/`([^`]+)`/g, (_, code) => hold(`<code>${escapeHtml(code)}</code>`));
+  // 释义是纯文本，先保护它，同时跳过代码、链接和公式中的 {{...}}。
+  let text = value.replace(inlineTermScan, (match, _code, _label, _url, _tex, _dollars, term, definition) => {
+    if (!term?.trim() || !definition.trim()) return match;
+    const word = escapeHtml(term.trim());
+    if (!allowTermTips) return hold(word);
+
+    const id = `reader-term-${++readerTermCount}`;
+    return hold(`<span class="term-wrap reader-term"><button class="term" type="button" aria-expanded="false" aria-describedby="${id}">${word}<sup class="term-badge" aria-hidden="true">i</sup></button><span class="term-tip" id="${id}" role="tooltip">${escapeHtml(definition.trim())}</span></span>`);
+  });
+
+  text = text.replace(inlineCodePattern, (_, code) => hold(`<code>${escapeHtml(code)}</code>`));
 
   if (allowLinks) {
-    text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, url) => {
+    text = text.replace(inlineLinkPattern, (_, label, url) => {
       const href = normalizeUrl(url);
       if (!href) return escapeHtml(label);
       return hold(`<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
@@ -388,7 +409,7 @@ function renderInlineMarkdown(value, { allowLinks = true } = {}) {
   }
 
   // 支持 $...$ 和 \(...\)。先保护代码和链接；$20 / $30 这样的价格不作为公式。
-  text = text.replace(/\\\((.+?)\\\)|(?<![\\$])\$(?!\$)([^\s$](?:[^$\n]*?[^\s$])?)\$(?![\d$])/g,
+  text = text.replace(inlineMathPattern,
     (_, parenthesized, dollars) => hold(renderMath(parenthesized ?? dollars)));
 
   text = escapeHtml(text)
@@ -463,6 +484,7 @@ function markdownToPreview(markdown, maxLines = 5, { dateHeadings = false } = {}
     if (lines.length >= maxLines) break;
   }
 
+  const inlineOptions = { allowLinks: false, allowTermTips: false };
   return lines
     .map(({ kind, text }) => {
       if (kind === "date") {
@@ -470,10 +492,10 @@ function markdownToPreview(markdown, maxLines = 5, { dateHeadings = false } = {}
       }
 
       if (text.startsWith("- ")) {
-        return `<p>${renderInlineMarkdown(text.replace(/^- /, "• "), { allowLinks: false })}</p>`;
+        return `<p>${renderInlineMarkdown(text.replace(/^- /, "• "), inlineOptions)}</p>`;
       }
 
-      return `<p>${renderInlineMarkdown(text, { allowLinks: false })}</p>`;
+      return `<p>${renderInlineMarkdown(text, inlineOptions)}</p>`;
     })
     .join("");
 }
@@ -615,6 +637,7 @@ function readingMinutes(markdown) {
     .replace(/\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]/g, " ")
     // 图片路径和说明不算阅读字数。
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(inlineTermPattern, "$1")
     .replace(/[#>*_`\[\]()!-]/g, " ");
   const cjk = (text.match(/[\u3400-\u9fff]/g) || []).length;
   const words = (text.replace(/[\u3400-\u9fff]/g, " ").match(/[A-Za-z0-9]+/g) || []).length;
@@ -1948,6 +1971,7 @@ async function buildSiteSearch() {
     // 图片只保留说明文字，去掉 |wide 这类版式标记，搜索时能按图片说明找到笔记。
     const body = markdown.replace(/!\[([^\]|]*)[^\]]*\]\([^)]*\)/g, "$1")
       .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(inlineTermPattern, "$1")
       .replace(/[#*_`>~|]/g, " ").replace(/\s+/g, " ").trim();
     const meta = [entry.date, entry.type, entry.place, entry.status].filter(Boolean).join(" · ");
     return { kind, label, title: entry.title || "未命名", file: entry.file, meta, body,
@@ -3513,6 +3537,55 @@ function setupTermTip() {
   });
 }
 
+function positionReaderTermTip(term) {
+  const tip = term.querySelector(".term-tip");
+  const bounds = term.getBoundingClientRect();
+  const readerBounds = readerSection.getBoundingClientRect();
+  const barBounds = readerBarElement.getBoundingClientRect();
+  const top = barBounds.bottom <= bounds.top ? Math.max(readerBounds.top, barBounds.bottom) : readerBounds.top;
+  const bottom = barBounds.top >= bounds.bottom ? Math.min(readerBounds.bottom, barBounds.top) : readerBounds.bottom;
+  const spaceAbove = bounds.top - top;
+  const spaceBelow = bottom - bounds.bottom;
+  const left = Math.max(readerBounds.left + 12,
+    Math.min(bounds.left + (bounds.width - tip.offsetWidth) / 2, readerBounds.right - 12 - tip.offsetWidth));
+  term.style.setProperty("--reader-term-tip-left", `${left - bounds.left}px`);
+  term.toggleAttribute("data-tip-below", spaceAbove < tip.offsetHeight + 6 && spaceBelow > spaceAbove);
+  term.removeAttribute("data-tip-dismissed");
+}
+
+function dismissReaderTerm(term) {
+  term.querySelector(".term").setAttribute("aria-expanded", "false");
+  term.setAttribute("data-tip-dismissed", "");
+}
+
+function setupReaderTermTips() {
+  readerSection.addEventListener("pointerover", (event) => {
+    const term = event.target.closest(".reader-term");
+    if (term && !term.contains(event.relatedTarget)) positionReaderTermTip(term);
+  });
+
+  readerSection.addEventListener("focusin", (event) => {
+    const term = event.target.closest(".reader-term");
+    if (term) positionReaderTermTip(term);
+  });
+
+  document.addEventListener("click", (event) => {
+    const term = event.target.closest(".reader-term");
+    for (const openButton of readerSection.querySelectorAll('.reader-term .term[aria-expanded="true"]')) {
+      if (openButton.parentElement !== term) dismissReaderTerm(openButton.parentElement);
+    }
+
+    const button = event.target.closest(".reader-term > .term");
+    if (!button) return;
+    if (button.getAttribute("aria-expanded") === "true") {
+      dismissReaderTerm(term);
+    } else {
+      positionReaderTermTip(term);
+      button.setAttribute("aria-expanded", "true");
+    }
+  });
+}
+
 document.addEventListener("click", (event) => {
   const imageButton = event.target.closest("[data-lightbox-src]");
   if (imageButton) {
@@ -3628,7 +3701,7 @@ document.addEventListener("keydown", (event) => {
   stepImageLightbox(event.key === "ArrowRight" ? 1 : -1);
 });
 
-// Esc：先关灯箱，再关阅读层。
+// Esc：先关灯箱或释义，再关阅读层。
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
 
@@ -3638,6 +3711,12 @@ document.addEventListener("keydown", (event) => {
   }
 
   if (isReaderOpen()) {
+    const visibleTerms = [...readerSection.querySelectorAll(".reader-term:not([data-tip-dismissed]) .term-tip")]
+      .filter((tip) => getComputedStyle(tip).pointerEvents === "auto");
+    if (visibleTerms.length) {
+      visibleTerms.forEach((tip) => dismissReaderTerm(tip.parentElement));
+      return;
+    }
     const backHref = document.querySelector(".reader-back")?.getAttribute("href") || "#notes";
     animateReaderClose(backHref);
   }
@@ -3740,6 +3819,7 @@ setupReaderDebugHud();
 setupProfileSocial();
 setupThemeToggle();
 setupTermTip();
+setupReaderTermTips();
 syncNavPlacement();
 setupNavLens();
 setupSiteSearch();
