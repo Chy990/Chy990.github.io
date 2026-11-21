@@ -6,9 +6,9 @@ window.BLOG_CONTENT = {
       "type": "饭后杂谈",
       "title": "上四年",
       "file": "2026_11_08_饭后杂谈_上四年.md",
-      "contentHash": "64a57158ab55f7104ebfb42025308574c9db82ac17fc3e02579d52df4712c24c",
+      "contentHash": "768a76a2cd94d0bbd390dc068b0249a5da31c9a8fbf81a80344b3afd11a87094",
       "updated": "2026-11-21",
-      "updatedAt": "2026-11-21T13:47:59.643917"
+      "updatedAt": "2026-11-21T18:17:32.287236"
     },
     {
       "date": "2026-11-16",
@@ -27,6 +27,13 @@ window.BLOG_CONTENT = {
       "contentHash": "5e9dbbb6bc17b803920f0b0941da9e1e46f53b02852dd26946df73d1f413203e",
       "updated": "2026-11-21",
       "updatedAt": "2026-11-21T13:47:59.642253"
+    },
+    {
+      "date": "2026-11-21",
+      "type": "经验",
+      "title": "OPPO系手机使用Google Wallet无法刷卡的问题",
+      "file": "2026_11_21_经验_OPPO系手机使用Google_Wallet无法刷卡的问题.md",
+      "contentHash": "9a27a18e15d7a83a30d305a9a9b45d073e25817c4cd816dab0625b0e182a9123"
     },
     {
       "date": "2026-07-01",
