@@ -2,13 +2,11 @@
 window.BLOG_CONTENT = {
   "notes": [
     {
-      "date": "2026-11-08",
-      "type": "饭后杂谈",
-      "title": "上四年",
-      "file": "2026_11_08_饭后杂谈_上四年.md",
-      "contentHash": "6340d907bcb4b711dc622ca8e2243b2857c1b0383208b283667e5326f022fe31",
-      "updated": "2026-11-22",
-      "updatedAt": "2026-11-22T11:06:33.554879"
+      "date": "2026-11-22",
+      "type": "七日杂记",
+      "title": "第1周",
+      "file": "2026_11_22_七日杂记_第01周.md",
+      "contentHash": "313c219d2b4360cfac9e1d48b95bfe66c4230e5a416886d37863cc5a36ab00b2"
     },
     {
       "date": "2026-11-16",
@@ -30,19 +28,17 @@ window.BLOG_CONTENT = {
     },
     {
       "date": "2026-11-21",
-      "type": "经验",
+      "type": "披沙拣金",
       "title": "OPPO系手机使用Google Wallet无法刷卡的问题",
-      "file": "2026_11_21_经验_OPPO系手机使用Google_Wallet无法刷卡的问题.md",
+      "file": "2026_11_21_披沙拣金_OPPO系手机使用Google_Wallet无法刷卡的问题.md",
       "contentHash": "9a27a18e15d7a83a30d305a9a9b45d073e25817c4cd816dab0625b0e182a9123"
     },
     {
-      "date": "2026-07-01",
-      "type": "经验",
-      "title": "换机笔记",
-      "file": "2026_07_01_经验_换机笔记.md",
-      "contentHash": "b622a204af7004d53a3bcd9f6c64b3e20b3c5e650811b2d5dbc2027b7e71c449",
-      "updated": "2026-11-14",
-      "updatedAt": "2026-11-14T15:44:57.765599"
+      "date": "2026-11-08",
+      "type": "饭后杂谈",
+      "title": "四载行书",
+      "file": "2026_11_08_饭后杂谈_四载行书.md",
+      "contentHash": "b50a744e061f42ee5f1f38346e6040fd5bbdca5143faa3528ff68195330a8dae"
     },
     {
       "date": "2026-10-21",
@@ -57,6 +53,13 @@ window.BLOG_CONTENT = {
       "title": "简单论",
       "file": "2026_10_20_饭后杂谈_简单论.md",
       "contentHash": "59b26fffb2054b36cf31faa46339fb513d17c496a5cf9dc8b7e3578cbbe97e43"
+    },
+    {
+      "date": "2026-07-01",
+      "type": "披沙拣金",
+      "title": "换机笔记",
+      "file": "2026_07_01_披沙拣金_换机笔记.md",
+      "contentHash": "b622a204af7004d53a3bcd9f6c64b3e20b3c5e650811b2d5dbc2027b7e71c449"
     },
     {
       "date": "2026-04-15",
