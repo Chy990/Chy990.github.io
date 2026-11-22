@@ -6,9 +6,9 @@ window.BLOG_CONTENT = {
       "type": "饭后杂谈",
       "title": "上四年",
       "file": "2026_11_08_饭后杂谈_上四年.md",
-      "contentHash": "768a76a2cd94d0bbd390dc068b0249a5da31c9a8fbf81a80344b3afd11a87094",
-      "updated": "2026-11-21",
-      "updatedAt": "2026-11-21T18:17:32.287236"
+      "contentHash": "6340d907bcb4b711dc622ca8e2243b2857c1b0383208b283667e5326f022fe31",
+      "updated": "2026-11-22",
+      "updatedAt": "2026-11-22T11:06:33.554879"
     },
     {
       "date": "2026-11-16",
