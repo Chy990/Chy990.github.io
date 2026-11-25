@@ -1913,7 +1913,7 @@ h2 {
 }
 
 /* ================================================================
-   10. 最近更新 & 个人
+   10. 个人
    ================================================================ */
 .bottom-layout {
   display: grid;
@@ -1927,172 +1927,13 @@ h2 {
   scroll-margin-top: 96px;
 }
 
-/*
-  近期更新：放在“个人”面板统计数字下方的两个小模块。
-  每块是一条迷你时间线（日期 + 一行摘要），点击整块进入完整日志。
-*/
-.profile-side {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-}
-
-/*
-  两栏时右侧（统计 + 近期更新）和左边文字等高：右栏拉伸到文字的高度，
-  上下两组分别贴住顶部和底部。上下各留出半个行距，对齐文字真正的首行顶和末行底。
-*/
-@media (min-width: 1181px) {
-  .profile-side {
-    align-self: stretch;
-    align-content: space-between;
-    padding-block: calc(0.36 * clamp(19px, 2.1vw, 26px));
-  }
-}
-
-.profile-updates {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  scroll-margin-top: 96px;
-}
-
-.profile-updates-label {
-  margin: 0;
-  color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.13em;
-}
-
-.profile-updates-label span {
-  padding: 0 3px;
-  color: var(--accent);
-}
-
-.update-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.update-grid > .content-link {
-  display: flex;
-  min-width: 0;
-  border-radius: var(--radius-md);
-}
-
-.update-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-width: 0;
-  padding: 8px 14px 9px;
-  overflow: hidden;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass-nested, var(--glass));
-  box-shadow: var(--glass-highlight);
-  transition:
-    transform 380ms var(--ease-spring),
-    background-color 280ms ease,
-    border-color 300ms ease,
-    box-shadow 340ms ease;
-}
-
-.update-card .card-meta {
-  display: flex;
-  justify-content: space-between;
-  margin: 0 0 3px;
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.update-card .card-meta span:last-child {
-  color: var(--faint);
-  letter-spacing: 0;
-  transition: color 240ms ease, transform 320ms var(--ease-spring);
-}
-
-.update-card-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-}
-
-.update-card h3 {
-  margin: 0;
-  overflow: hidden;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 240ms ease;
-}
-
-.update-card time {
-  flex: 0 0 auto;
-  color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-}
-
-.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card {
-  border-color: var(--glass-border);
-  background: var(--glass-strong);
-  box-shadow: var(--glass-highlight), 0 18px 36px -26px rgba(20, 22, 30, 0.45);
-  transform: translateY(-3px);
-}
-
-@media (hover: hover) {
-  .update-grid .content-link:hover .update-card {
-    border-color: var(--glass-border);
-    background: var(--glass-strong);
-    box-shadow: var(--glass-highlight), 0 18px 36px -26px rgba(20, 22, 30, 0.45);
-    transform: translateY(-3px);
-  }
-}
-
-.update-grid .content-link:active .update-card {
-  border-color: var(--accent);
-  box-shadow: var(--glass-highlight), 0 0 0 3px var(--accent-soft);
-  transform: translateY(-1px) scale(0.99);
-  transition-duration: 120ms;
-}
-
-.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card h3,
-.update-grid .content-link:focus-visible:where(:not(.is-quiet-focus)) .update-card .card-meta span:last-child {
-  color: var(--accent);
-}
-
-@media (hover: hover) {
-  .update-grid .content-link:hover .update-card h3,
-  .update-grid .content-link:hover .update-card .card-meta span:last-child {
-    color: var(--accent);
-  }
-
-  .update-grid .content-link:hover .update-card .card-meta span:last-child {
-    transform: translate(2px, -2px);
-  }
-}
-
 /* 个人介绍：整页的版权页。 */
 .profile-panel {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
   align-items: center;
-  gap: clamp(32px, 5vw, 64px);
+  gap: clamp(24px, 3vw, 40px) clamp(32px, 5vw, 64px);
   padding: clamp(28px, 4vw, 48px);
   overflow: hidden;
   border: 1px solid var(--glass-border);
@@ -2125,35 +1966,74 @@ h2 {
 
 .profile-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .profile-stats span {
-  padding: 10px 14px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass-nested, var(--glass));
-  box-shadow: var(--glass-highlight);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding-block: 4px;
+}
+
+.profile-stats span + span {
+  border-inline-start: 1px solid var(--rule);
 }
 
 .profile-stats strong {
-  display: block;
   font-family: var(--font-display);
-  font-size: clamp(26px, 2.3vw, 32px);
-  font-weight: 600;
+  font-size: clamp(2rem, 3.6vw, 3.25rem);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.04em;
   line-height: 1;
 }
 
 .profile-stats small {
-  display: block;
-  margin-top: 6px;
+  color: var(--muted);
+  font-size: .875rem;
+}
+
+.profile-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  scroll-margin-top: 96px;
+}
+
+.profile-log {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  min-height: 44px;
+  color: var(--ink-2);
+  font-size: .9375rem;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
+  text-underline-offset: .25em;
+}
+
+.profile-log time {
+  display: inline-block;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
+  font-size: .8125rem;
+}
+
+.profile-log:hover,
+.profile-log:focus-visible {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.profile-log[hidden],
+.profile-footer:has(.profile-log[hidden]):has(.profile-social[hidden]) {
+  display: none;
 }
 
 /* ================================================================
@@ -2217,8 +2097,7 @@ h2 {
 
 .note-grid .loading-row,
 .repo-grid .loading-row,
-.gallery-grid .loading-row,
-.update-grid .loading-row {
+.gallery-grid .loading-row {
   grid-column: 1 / -1;
 }
 
@@ -3043,15 +2922,9 @@ body.is-reader-open .reader-scrim {
   }
 }
 
-/*
-  个人面板右侧还放着两个近期更新小模块，宽度不足 1180px（含 iPad 横屏）时
-  两栏会把小模块挤得太窄，所以提前改成上下排列。
-*/
-@media (max-width: 1180px) {
+@media (max-width: 52rem) {
   .profile-panel {
     grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    gap: 32px;
   }
 }
 
@@ -3125,13 +2998,6 @@ body.is-reader-open .reader-scrim {
 
   .repo-grid > .content-link:last-child {
     grid-column: auto;
-  }
-}
-
-/* 极窄屏幕（小于 360px）才把两个近期更新小模块改成上下排列。 */
-@media (max-width: 360px) {
-  .update-grid {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -3487,15 +3353,6 @@ body.is-reader-open .reader-scrim {
     line-height: 1.75;
   }
 
-  .profile-stats strong {
-    font-size: 28px;
-  }
-
-  .profile-stats span {
-    padding: 12px;
-    border-radius: var(--radius-sm);
-  }
-
   .site-footer {
     flex-direction: column;
     align-items: flex-start;
@@ -3600,13 +3457,7 @@ body.is-reader-open .reader-scrim {
     width: 38%;
   }
 
-  .profile-stats strong {
-    font-size: 26px;
-  }
 
-  .profile-stats small {
-    font-size: 8px;
-  }
 }
 
 /* ================================================================
@@ -3751,7 +3602,6 @@ body.nav-docked.nav-dock-ipad .reader-bar {
   .note-filters button,
   .note-card,
   .repo-card,
-  .update-card,
   .gallery-item figure,
   .profile-panel,
   .journal-card,
@@ -4283,16 +4133,17 @@ body.nav-docked .site-search-output {
 }
 
 /* 个人页的社交入口：仅在填写网址后显示。 */
-.profile-social { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
+.profile-social { margin-inline-start: auto; }
 .profile-social[hidden], .profile-social a[hidden] { display: none; }
-.profile-social-label { color: var(--faint); font-family: var(--font-mono); font-size: 9px; letter-spacing: .13em; }
-.profile-social-label span { padding: 0 3px; color: var(--accent); }
 .profile-social-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.profile-social-links a { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--rule); border-radius: 50%; background: var(--glass-strong); box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(20, 22, 30, 0.5); color: var(--ink-2); text-decoration: none; -webkit-tap-highlight-color: transparent; transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 320ms var(--ease-spring), box-shadow 220ms ease; }
+.profile-social-links a { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--rule); border-radius: 50%; background: var(--glass-strong); box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(20, 22, 30, 0.5); color: var(--ink-2); text-decoration: none; -webkit-tap-highlight-color: transparent; transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 320ms var(--ease-spring), box-shadow 220ms ease; }
 .profile-social-links a svg { width: 19px; height: 19px; }
 .profile-social-links a:hover, .profile-social-links a:focus-visible { border-color: var(--ink); background: var(--ink); box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(20, 22, 30, 0.43); color: var(--paper); transform: translateY(-2px) scale(1.04); }
 .profile-social-links a:active { transform: scale(.92); }
-@media (max-width: 600px) { .profile-social { gap: 12px; padding-top: 18px; } .profile-social-links { width: 100%; } }
+@media (max-width: 24rem) {
+  .profile-social { margin-inline-start: 0; }
+  .profile-log { flex-basis: 100%; }
+}
 
 /* ================================================================
    首屏生活切片：卡片立在一圈真正的 3D 圆环上，镜头略微俯视。

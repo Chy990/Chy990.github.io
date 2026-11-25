@@ -2,127 +2,109 @@
 window.BLOG_CONTENT = {
   "notes": [
     {
+      "date": "2026-11-08",
+      "type": "饭后杂谈",
+      "title": "四载行书",
+      "file": "2026_11_08_饭后杂谈_四载行书.md",
+      "updated": "2026-11-25"
+    },
+    {
       "date": "2026-11-22",
       "type": "七日杂记",
       "title": "第1周",
-      "file": "2026_11_22_七日杂记_第01周.md",
-      "contentHash": "798d8c9c329e1bbe165b31a380cdfd2b060d09b67377a1d2427291073d2c87ef"
+      "file": "2026_11_22_七日杂记_第01周.md"
     },
     {
       "date": "2026-11-16",
       "type": "饭后杂谈",
       "title": "体感温度对运动的影响",
       "file": "2026_11_16_饭后杂谈_体感温度对运动的影响.md",
-      "contentHash": "e815ae4aa7ed7c4b680fdb9e43ddd89c19469a0cf8cc9b6d2fd4e2807e78db5a",
-      "updated": "2026-11-21",
-      "updatedAt": "2026-11-21T13:47:59.642496"
+      "updated": "2026-11-21"
     },
     {
       "date": "2026-11-11",
       "type": "饭后杂谈",
       "title": "人格论",
       "file": "2026_11_11_饭后杂谈_人格论.md",
-      "contentHash": "5e9dbbb6bc17b803920f0b0941da9e1e46f53b02852dd26946df73d1f413203e",
-      "updated": "2026-11-21",
-      "updatedAt": "2026-11-21T13:47:59.642253"
+      "updated": "2026-11-21"
     },
     {
       "date": "2026-11-21",
       "type": "披沙拣金",
       "title": "OPPO系手机使用Google Wallet无法刷卡的问题",
-      "file": "2026_11_21_披沙拣金_OPPO系手机使用Google_Wallet无法刷卡的问题.md",
-      "contentHash": "9a27a18e15d7a83a30d305a9a9b45d073e25817c4cd816dab0625b0e182a9123"
-    },
-    {
-      "date": "2026-11-08",
-      "type": "饭后杂谈",
-      "title": "四载行书",
-      "file": "2026_11_08_饭后杂谈_四载行书.md",
-      "contentHash": "b50a744e061f42ee5f1f38346e6040fd5bbdca5143faa3528ff68195330a8dae"
+      "file": "2026_11_21_披沙拣金_OPPO系手机使用Google_Wallet无法刷卡的问题.md"
     },
     {
       "date": "2026-10-21",
       "type": "饭后杂谈",
       "title": "羽毛球心理学",
-      "file": "2026_10_21_饭后杂谈_羽毛球心理学.md",
-      "contentHash": "ab7b3b249a656c803bc782916ebb3b8d569f6f6d1ee0cef2d925208fb9e30b79"
+      "file": "2026_10_21_饭后杂谈_羽毛球心理学.md"
     },
     {
       "date": "2026-10-20",
       "type": "饭后杂谈",
       "title": "简单论",
-      "file": "2026_10_20_饭后杂谈_简单论.md",
-      "contentHash": "59b26fffb2054b36cf31faa46339fb513d17c496a5cf9dc8b7e3578cbbe97e43"
+      "file": "2026_10_20_饭后杂谈_简单论.md"
     },
     {
       "date": "2026-07-01",
       "type": "披沙拣金",
       "title": "换机笔记",
-      "file": "2026_07_01_披沙拣金_换机笔记.md",
-      "contentHash": "b622a204af7004d53a3bcd9f6c64b3e20b3c5e650811b2d5dbc2027b7e71c449"
+      "file": "2026_07_01_披沙拣金_换机笔记.md"
     },
     {
       "date": "2026-04-15",
       "type": "读后笔记",
       "title": "认知觉醒：开启自我改变的原动力",
-      "file": "2026_04_15_读后笔记_认知觉醒.md",
-      "contentHash": "a0b9f44d79d2639f6852444329d3fc7db885883c48b3b8b0621226f729229f8f"
+      "file": "2026_04_15_读后笔记_认知觉醒.md"
     },
     {
       "date": "2025-07-28",
       "type": "读后笔记",
       "title": "大力出奇迹：张一鸣的创业心路与算法思维",
-      "file": "2025_07_28_读后笔记_大力出奇迹.md",
-      "contentHash": "594df7b993efb9edf0ee2ddcf1f17f7958993053b858e955684c1174f21b2924"
+      "file": "2025_07_28_读后笔记_大力出奇迹.md"
     },
     {
       "date": "2025-05-30",
       "type": "读后笔记",
       "title": "任正非传",
-      "file": "2025_05_30_读后笔记_任正非传.md",
-      "contentHash": "a16b5e21934fd438c8df021c391917e4f429609f0204faf3da4fb705ba8931c7"
+      "file": "2025_05_30_读后笔记_任正非传.md"
     },
     {
       "date": "2025-04-03",
       "type": "读后笔记",
       "title": "王兴传",
-      "file": "2025_04_03_读后笔记_王兴传.md",
-      "contentHash": "837bd7d714e2632cf450354fb5a8f5d95d954716b1f3d1f43f721534e57c064d"
+      "file": "2025_04_03_读后笔记_王兴传.md"
     },
     {
       "date": "2024-09-10",
       "type": "读后笔记",
       "title": "富爸爸穷爸爸",
-      "file": "2024_09_10_读后笔记_富爸爸穷爸爸.md",
-      "contentHash": "5dc95c73db2a67e9ed614e1b5c972f9f432ee43ebdb008c632422c18ebb3b414"
+      "file": "2024_09_10_读后笔记_富爸爸穷爸爸.md"
     },
     {
       "date": "2024-08-28",
       "type": "读后笔记",
       "title": "邓小平时代",
-      "file": "2024_08_28_读后笔记_邓小平时代.md",
-      "contentHash": "4395137bce388796bc13a82429c45532fc760fce26e46569d2d41df3cac55524"
+      "file": "2024_08_28_读后笔记_邓小平时代.md"
     },
     {
       "date": "2024-08-06",
       "type": "读后笔记",
       "title": "李光耀观天下",
-      "file": "2024_08_06_读后笔记_李光耀观天下.md",
-      "contentHash": "400820028dcd1791b7da32cdfd69f5794f95a7641c5ce148bd6768164a626bfc"
+      "file": "2024_08_06_读后笔记_李光耀观天下.md"
     },
     {
       "date": "2024-05-03",
       "type": "读后笔记",
       "title": "腾讯传1998-2016：中国互联网公司进化论",
-      "file": "2024_05_03_读后笔记_腾讯传.md",
-      "contentHash": "7dc1d734772c0cd3b8a5a27c2d84a84d5772849b24de6a6fdf0ac79f13e1bb6c"
+      "file": "2024_05_03_读后笔记_腾讯传.md"
     },
     {
       "date": "2024-03-03",
       "type": "读后笔记",
       "title": "价值：张磊投资思想全面公开",
-      "file": "2024_03_03_读后笔记_价值.md",
-      "contentHash": "b87b8a4a04b3fdd79257d7883be66b9b17186ec143333955f4153db8edc31995"
+      "file": "2024_03_03_读后笔记_价值.md"
     }
   ],
   "repos": [
@@ -439,14 +421,10 @@ window.BLOG_CONTENT = {
   ],
   "updates": [
     {
-      "type": "content",
-      "title": "内容更新历史",
-      "file": "content_updates.md"
-    },
-    {
       "type": "template",
       "title": "模板更新历史",
-      "file": "template_updates.md"
+      "file": "template_updates.md",
+      "date": "2026-11-21"
     }
   ]
 };

@@ -32,7 +32,6 @@ const observedRevealItems = new WeakSet();
 let notesData = [];
 let reposData = [];
 let galleryData = [];
-let updatesData = [];
 let currentOpenSource = null;
 let readerMotion = null;
 let readerSettleTimer = 0;
@@ -623,7 +622,7 @@ function stripFirstHeading(markdown) {
 }
 
 function stripFrontmatter(markdown) {
-  return markdown.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  return markdown.replace(/^\uFEFF?---[ \t]*\r?\n(?:[^\n]*\n)*?---[ \t]*(?:\r?\n|$)/, "");
 }
 
 /*
@@ -1772,7 +1771,7 @@ function getContentIndex() {
     notes: Array.isArray(index.notes) ? index.notes : [],
     repos: Array.isArray(index.repos) ? index.repos : [],
     gallery: Array.isArray(index.gallery) ? index.gallery : [],
-    updates: Array.isArray(index.updates) ? index.updates : [],
+    updates: Array.isArray(index.updates) ? index.updates.filter((item) => item.type === "template") : [],
   };
 }
 
@@ -1797,8 +1796,8 @@ function sortNotesByActivity(entries) {
   return entries
     .map((entry, index) => ({ entry, index }))
     .sort((a, b) => {
-      const byDate = (b.entry.updatedAt || b.entry.updated || b.entry.date)
-        .localeCompare(a.entry.updatedAt || a.entry.updated || a.entry.date);
+      const byDate = (b.entry.updated || b.entry.date)
+        .localeCompare(a.entry.updated || a.entry.date);
       return byDate || a.index - b.index;
     })
     .map(({ entry }) => entry);
@@ -1867,7 +1866,7 @@ async function renderNoteCards(entries) {
   const cards = await Promise.all(
     entries.map(async (entry) => {
       const path = `./content/notes/${entry.file}`;
-      const markdown = await readTextSafe(path);
+      const markdown = stripFrontmatter(await readTextSafe(path));
       const upcoming = isMissingText(path);
       const minutes = readingMinutes(markdown);
       return `
@@ -2263,49 +2262,20 @@ function setupSiteSearch() {
   window.visualViewport?.addEventListener("scroll", syncSearchKeyboardInset);
 }
 
-/*
-  从更新日志里取最近一次的日期（第一个“### YYYY-MM-DD”标题），显示成 11.12 这样的短格式。
-*/
-function latestUpdateDate(markdown) {
-  const match = markdown.match(/^#{2,4}\s*(\d{4})[-./](\d{1,2})[-./](\d{1,2})/m);
-  if (!match) return null;
-  return {
-    iso: `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`,
-    short: `${match[2].padStart(2, "0")}.${match[3].padStart(2, "0")}`,
-  };
-}
+function renderTemplateLog() {
+  const link = document.querySelector(".profile-log");
+  const entry = getContentIndex().updates[0];
+  if (!entry) return;
 
-/*
-  渲染近期更新：
-  放在“个人”统计数字下方的两个小模块，只显示类型、名称和最近一次更新的日期，
-  点击整块进入完整的更新日志。
-*/
-async function renderUpdates() {
-  const container = document.querySelector(".update-grid");
-  const entries = getContentIndex().updates;
-  updatesData = entries;
-  const cards = await Promise.all(
-    entries.map(async (entry) => {
-      const markdown = await readTextSafe(`./content/updates/${entry.file}`);
-      const latest = latestUpdateDate(markdown);
-      const label = UPDATE_TYPE_LABELS[entry.type] || entry.title;
-      const dateHtml = latest
-        ? `<time datetime="${latest.iso}">${latest.short}</time>`
-        : `<time>—</time>`;
-      return `
-        <a class="content-link" href="${detailHref("update", entry.file)}" aria-label="${escapeHtml(`${label}${latest ? `，最近 ${latest.iso}` : ""}：查看完整更新日志`)}">
-          <article class="update-card">
-            <p class="card-meta"><span>${escapeHtml(entry.type)}</span><span aria-hidden="true">↗</span></p>
-            <div class="update-card-row">
-              <h3>${escapeHtml(label)}</h3>
-              ${dateHtml}
-            </div>
-          </article>
-        </a>
-      `;
-    })
-  );
-  container.innerHTML = cards.join("");
+  link.href = detailHref("update", entry.file);
+  link.textContent = entry.title;
+  if (entry.date) {
+    const time = document.createElement("time");
+    time.dateTime = entry.date;
+    time.textContent = entry.date.replaceAll("-", ".");
+    link.append(time);
+  }
+  link.hidden = false;
 }
 
 /*
@@ -2325,7 +2295,6 @@ function updateProfileStats() {
     notes: notesData.length,
     repos: reposData.length,
     gallery: galleryData.length,
-    updates: updatesData.length,
   };
 
   for (const [key, value] of Object.entries(sectionCounts)) {
@@ -2859,19 +2828,17 @@ function closeImageLightbox({ immediate = false } = {}) {
   ], 260).then(finish);
 }
 
-// 更新日志的类型在 Markdown 文件名里是 content / template，这里换成中文再展示。
-const UPDATE_TYPE_LABELS = { content: "内容更新", template: "模板更新" };
-
 async function openMarkdownDetail(kind, file, isCurrent = () => true) {
   const isNote = kind === "note";
   const isUpdate = kind === "update";
-  const entries = isNote ? notesData : isUpdate ? updatesData : reposData;
+  const entries = isNote ? notesData : isUpdate ? getContentIndex().updates : reposData;
   const entry = entries.find((item) => item.file === file);
   if (!entry) return false;
 
   const folder = isNote ? "notes" : isUpdate ? "updates" : "repos";
   const path = `./content/${folder}/${file}`;
-  const markdown = await readTextSafe(path);
+  const raw = await readTextSafe(path);
+  const markdown = isNote ? stripFrontmatter(raw) : raw;
   const upcoming = isMissingText(path);
   const body = markdown
     ? markdownToHtml(stripFirstHeading(markdown), {
@@ -2889,7 +2856,7 @@ async function openMarkdownDetail(kind, file, isCurrent = () => true) {
       : `${entry.date} · ${entry.type} · 约 ${readingMinutes(markdown)} 分钟`;
     if (entry.updated) meta += ` · 更新于 ${entry.updated}`;
   } else if (isUpdate) {
-    meta = `${UPDATE_TYPE_LABELS[entry.type] || entry.type} · 更新日志`;
+    meta = "模板更新";
   } else {
     meta = `${entry.status} · 项目记录`;
   }
@@ -2979,6 +2946,12 @@ async function handleRoute() {
   }
 
   if (opened && isCurrent()) lastDetailHash = fullHash;
+  if (kind === "update" && !opened && isCurrent()) {
+    hideReader({ restoreFocus: false });
+    lastDetailHash = "";
+    currentOpenSource = null;
+    window.location.replace("#profile");
+  }
 }
 
 /*
@@ -3046,7 +3019,7 @@ function morphTransform(fromRect, toRect) {
 function createReaderMorphGhost(link, rect) {
   if (!link) return null;
   const linkStyle = getComputedStyle(link);
-  const hoveredSurface = link.querySelector(".note-card, .repo-card, .update-card, figure");
+  const hoveredSurface = link.querySelector(".note-card, .repo-card, figure");
   const hoveredTransform = hoveredSurface ? getComputedStyle(hoveredSurface).transform : "none";
   const ghost = document.createElement("div");
   const clone = link.cloneNode(true);
@@ -3069,7 +3042,7 @@ function createReaderMorphGhost(link, rect) {
   clone.setAttribute("tabindex", "-1");
   clone.style.display = linkStyle.display;
   // 点击时卡片正处于 hover 的轻微上浮状态，把这个位移也带进影子里。
-  const cloneSurface = clone.querySelector(".note-card, .repo-card, .update-card, figure");
+  const cloneSurface = clone.querySelector(".note-card, .repo-card, figure");
   if (cloneSurface && hoveredTransform !== "none") cloneSurface.style.transform = hoveredTransform;
   clone.querySelectorAll("[data-reveal]").forEach((node) => {
     node.removeAttribute("data-reveal");
@@ -3502,8 +3475,8 @@ async function renderContent() {
     renderSection("笔记", renderNotes, ".note-grid"),
     renderSection("仓库", renderRepos, ".repo-grid"),
     renderSection("相册", renderGallery, ".gallery-grid"),
-    renderSection("最近更新", renderUpdates, ".update-grid"),
   ]);
+  renderTemplateLog();
   updateProfileStats();
   buildSiteSearch().catch((error) => {
     console.error("搜索索引读取失败", error);

@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from datetime import datetime
+from datetime import date
 from pathlib import Path
 
 
@@ -30,7 +30,7 @@ def read_first_heading(path: Path) -> str | None:
 def read_frontmatter(path: Path) -> dict[str, str]:
     """Return simple key/value frontmatter from a Markdown file."""
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
     except UnicodeDecodeError:
         return {}
 
@@ -40,11 +40,11 @@ def read_frontmatter(path: Path) -> dict[str, str]:
     data: dict[str, str] = {}
     for line in lines[1:]:
         if line.strip() == "---":
-            break
+            return data
         key, separator, value = line.partition(":")
         if separator:
             data[key.strip().lower()] = value.strip().strip('"')
-    return data
+    return {}
 
 
 def title_from_slug(slug: str) -> str:
@@ -53,7 +53,7 @@ def title_from_slug(slug: str) -> str:
     return " ".join(word for word in words if word).strip() or "Untitled"
 
 
-def note_entry(path: Path, previous: dict[str, str] | None = None) -> dict[str, str]:
+def note_entry(path: Path) -> dict[str, str]:
 
     match = re.match(r"^(\d{4})_(\d{2})_(\d{2})_([^_]+)_(.+)\.md$", path.name)
     heading = read_first_heading(path)
@@ -75,34 +75,17 @@ def note_entry(path: Path, previous: dict[str, str] | None = None) -> dict[str, 
             "file": path.name,
         }
 
-    # The generated index is also the baseline for detecting later edits. The
-    # first run records fingerprints without inventing historical edit dates.
-    entry["contentHash"] = hashlib.sha256(path.read_bytes()).hexdigest()
-    if previous:
-        updated = previous.get("updated", "")
-        updated_at = previous.get("updatedAt", "")
-        old_hash = previous.get("contentHash")
-        if old_hash and old_hash != entry["contentHash"]:
-            updated_at = max(updated_at, datetime.now().isoformat(timespec="microseconds"))
-            updated = updated_at[:10]
-        if updated > entry["date"]:
+    updated = read_frontmatter(path).get("updated")
+    if updated:
+        try:
+            iso_date = date.fromisoformat(updated).isoformat()
+        except ValueError:
+            iso_date = ""
+        if iso_date == updated and updated >= entry["date"]:
             entry["updated"] = updated
-            if updated_at:
-                entry["updatedAt"] = updated_at
+        else:
+            raise ValueError(f"{path.name} 的 updated 应为 YYYY-MM-DD 格式的有效日期，且不得早于创建日期")
     return entry
-
-
-def previous_notes() -> dict[str, dict[str, str]]:
-    """Read the last generated baseline; fall back to JS if JSON is absent."""
-    if JSON_OUTPUT.exists():
-        payload = JSON_OUTPUT.read_text(encoding="utf-8")
-    elif JS_OUTPUT.exists():
-        text = JS_OUTPUT.read_text(encoding="utf-8")
-        payload = text.split("window.BLOG_CONTENT = ", 1)[1].strip().removesuffix(";")
-    else:
-        return {}
-    data = json.loads(payload)
-    return {entry["file"]: entry for entry in data.get("notes", [])}
 
 
 def repo_entry(path: Path) -> dict[str, str]:
@@ -114,24 +97,17 @@ def repo_entry(path: Path) -> dict[str, str]:
     }
 
 
-def update_entry(path: Path) -> dict[str, str]:
+def template_updates() -> list[dict[str, str]]:
+    path = CONTENT / "updates" / "template_updates.md"
+    if not path.is_file():
+        return []
 
-    match = re.match(r"^([^_]+)_(.+)\.md$", path.name)
-    heading = read_first_heading(path)
-
-    if match:
-        update_type, slug = match.groups()
-        return {
-            "type": update_type,
-            "title": heading or title_from_slug(slug),
-            "file": path.name,
-        }
-
-    return {
-        "type": "update",
-        "title": heading or title_from_slug(path.stem),
-        "file": path.name,
-    }
+    entry = {"type": "template", "title": read_first_heading(path) or "模板更新历史", "file": path.name}
+    date = re.search(r"^#{2,4}[ \t]+(\d{4})[-./](\d{1,2})[-./](\d{1,2})\b", path.read_text(encoding="utf-8"), re.M)
+    if date:
+        year, month, day = date.groups()
+        entry["date"] = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+    return [entry]
 
 
 GALLERY_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
@@ -183,20 +159,14 @@ def gallery_entry(path: Path) -> dict:
 
 
 def collect() -> dict[str, list[dict]]:
-    previous = previous_notes()
     notes = sorted(
-        (note_entry(path, previous.get(path.name)) for path in (CONTENT / "notes").glob("*.md")),
-        key=lambda item: (item.get("updatedAt", item.get("updated", item["date"])), item["date"], item["file"]),
+        (note_entry(path) for path in (CONTENT / "notes").glob("*.md")),
+        key=lambda item: (item.get("updated", item["date"]), bool(item.get("updated")), item["date"], item["file"]),
         reverse=True,
     )
     repos = sorted(
         (repo_entry(path) for path in (CONTENT / "repos").glob("*.md")),
         key=lambda item: item["title"].casefold(),
-    )
-    update_type_order = {"content": 0, "template": 1}
-    updates = sorted(
-        (update_entry(path) for path in (CONTENT / "updates").glob("*.md")),
-        key=lambda item: (update_type_order.get(item["type"], 99), item["file"]),
     )
     gallery = sorted(
         (
@@ -207,7 +177,7 @@ def collect() -> dict[str, list[dict]]:
         key=lambda item: (item["date"], item["file"]),
         reverse=True,
     )
-    return {"notes": notes, "repos": repos, "gallery": gallery, "updates": updates}
+    return {"notes": notes, "repos": repos, "gallery": gallery, "updates": template_updates()}
 
 
 def main() -> None:
