@@ -42,14 +42,14 @@
       把这里和底部 script 的版本号一起改大即可。
     -->
     <link rel="stylesheet" href="./vendor/katex-0.19.1/katex.min.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261125-1" />
+    <link rel="stylesheet" href="./styles.css?v=20261125-2" />
 
     <!--
       首屏右侧每次随机挑选十项：相册照片和一篇笔记。
       清单和挑选脚本放在样式后面，既不挡 CSS 下载，又能在 hero 解析前
       把选中的缩略图预加载好。
     -->
-    <script src="./content/content-index.js?v=bb6b6a06b98d"></script>
+    <script src="./content/content-index.js?v=216b2f2ff9fb"></script>
     <script src="./hero-random.js?v=20261102-5"></script>
   </head>
   <body>
@@ -282,16 +282,10 @@
               </p>
             </div>
             <div class="profile-panel" data-reveal>
-              <p class="profile-statement">
-                该实验台是用于记录笔记、仓库和一些照片的平台。笔记内容基本源于生活，致力于不做AI文章。
-              </p>
-              <div class="profile-stats" role="group" aria-label="站内内容统计">
-                <span><strong data-stat="repos">0</strong><small>个项目</small></span>
-                <span><strong data-stat="notes">0</strong><small>则笔记</small></span>
-                <span><strong data-stat="gallery">0</strong><small>本相册</small></span>
-              </div>
-              <div id="updates" class="profile-footer">
-                <a class="content-link profile-log" hidden></a>
+              <div class="profile-intro">
+                <p class="profile-statement">
+                  该实验台是用于记录笔记、仓库和一些照片的平台。笔记内容基本源于生活，致力于不做AI文章。
+                </p>
                 <!-- 社交链接留空时自动隐藏。 -->
                 <nav class="profile-social" aria-label="社交媒体" hidden>
                   <div class="profile-social-links">
@@ -305,6 +299,19 @@
                   </div>
                 </nav>
               </div>
+              <div class="profile-stats" role="group" aria-label="站内内容统计">
+                <span><strong data-stat="repos">0</strong><small>个项目</small></span>
+                <span><strong data-stat="notes">0</strong><small>则笔记</small></span>
+                <span><strong data-stat="gallery">0</strong><small>本相册</small></span>
+              </div>
+              <a id="updates" class="content-link profile-log" hidden>
+                <svg class="profile-log-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3.5 10a8.5 8.5 0 1 1 1 6.5M3.5 4.5V10H9M12 7.5V12l3 2" />
+                </svg>
+                <span class="profile-log-title"></span>
+                <span class="profile-log-date" hidden>最近更新 <time></time></span>
+                <span class="profile-log-arrow" aria-hidden="true">→</span>
+              </a>
             </div>
           </section>
         </div>
@@ -367,6 +374,6 @@
 
     <!-- 页面行为放在 body 末尾，确保上面的 DOM 已经存在。 -->
     <script defer src="./vendor/katex-0.19.1/katex.min.js"></script>
-    <script defer src="./script.js?v=20261125-2"></script>
+    <script defer src="./script.js?v=20261125-3"></script>
   </body>
 </html>

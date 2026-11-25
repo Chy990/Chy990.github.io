@@ -424,7 +424,7 @@ window.BLOG_CONTENT = {
       "type": "template",
       "title": "模板更新历史",
       "file": "template_updates.md",
-      "date": "2026-11-21"
+      "date": "2026-11-25"
     }
   ]
 };

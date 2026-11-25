@@ -2268,12 +2268,13 @@ function renderTemplateLog() {
   if (!entry) return;
 
   link.href = detailHref("update", entry.file);
-  link.textContent = entry.title;
+  link.querySelector(".profile-log-title").textContent = entry.title;
+  const date = link.querySelector(".profile-log-date");
+  date.hidden = !entry.date;
   if (entry.date) {
-    const time = document.createElement("time");
+    const time = date.querySelector("time");
     time.dateTime = entry.date;
     time.textContent = entry.date.replaceAll("-", ".");
-    link.append(time);
   }
   link.hidden = false;
 }

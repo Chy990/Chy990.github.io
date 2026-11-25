@@ -1929,12 +1929,13 @@ h2 {
 
 /* 个人介绍：整页的版权页。 */
 .profile-panel {
+  --profile-inset: clamp(28px, 4vw, 48px);
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
   align-items: center;
   gap: clamp(24px, 3vw, 40px) clamp(32px, 5vw, 64px);
-  padding: clamp(28px, 4vw, 48px);
+  padding: var(--profile-inset);
   overflow: hidden;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
@@ -1994,45 +1995,67 @@ h2 {
   font-size: .875rem;
 }
 
-.profile-footer {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 20px;
-  padding-top: 12px;
-  border-top: 1px solid var(--rule);
-  scroll-margin-top: 96px;
+.profile-intro {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
 }
 
 .profile-log {
-  display: inline-flex;
-  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 2px 12px;
-  min-height: 44px;
-  color: var(--ink-2);
-  font-size: .9375rem;
-  text-decoration: underline;
-  text-decoration-color: var(--rule-strong);
-  text-underline-offset: .25em;
+  gap: 4px 14px;
+  margin: 0 calc(-1 * var(--profile-inset)) calc(-1 * var(--profile-inset));
+  padding: 16px var(--profile-inset);
+  border-top: 1px solid var(--rule);
+  background: var(--accent-soft);
+  color: var(--ink);
+  text-decoration: none;
+  scroll-margin-top: 96px;
 }
 
-.profile-log time {
-  display: inline-block;
-  color: var(--muted);
-  font-family: var(--font-mono);
+.profile-log-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+
+.profile-log-title {
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.profile-log-date {
+  color: var(--ink-2);
   font-size: .8125rem;
 }
 
-.profile-log:hover,
-.profile-log:focus-visible {
-  color: var(--accent);
-  text-decoration-color: currentColor;
+.profile-log-date time {
+  margin-inline-start: .35em;
+  font-family: var(--font-mono);
 }
 
-.profile-log[hidden],
-.profile-footer:has(.profile-log[hidden]):has(.profile-social[hidden]) {
+.profile-log-arrow {
+  grid-column: -2;
+  color: var(--accent);
+  font-size: 1.25rem;
+}
+
+.profile-log:hover .profile-log-title,
+.profile-log:focus-visible .profile-log-title {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: .22em;
+}
+
+.profile-log:focus-visible {
+  outline-offset: -4px;
+}
+
+.profile-log[hidden] {
   display: none;
 }
 
@@ -3344,7 +3367,8 @@ body.is-reader-open .reader-scrim {
 
   .profile-panel {
     gap: 26px;
-    padding: 24px 20px;
+    --profile-inset: 20px;
+    padding-top: 24px;
     border-radius: var(--radius-lg);
   }
 
@@ -4133,16 +4157,16 @@ body.nav-docked .site-search-output {
 }
 
 /* 个人页的社交入口：仅在填写网址后显示。 */
-.profile-social { margin-inline-start: auto; }
 .profile-social[hidden], .profile-social a[hidden] { display: none; }
 .profile-social-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .profile-social-links a { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--rule); border-radius: 50%; background: var(--glass-strong); box-shadow: var(--glass-highlight), 0 8px 18px -16px rgba(20, 22, 30, 0.5); color: var(--ink-2); text-decoration: none; -webkit-tap-highlight-color: transparent; transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 320ms var(--ease-spring), box-shadow 220ms ease; }
 .profile-social-links a svg { width: 19px; height: 19px; }
 .profile-social-links a:hover, .profile-social-links a:focus-visible { border-color: var(--ink); background: var(--ink); box-shadow: var(--glass-highlight), 0 14px 28px -18px rgba(20, 22, 30, 0.43); color: var(--paper); transform: translateY(-2px) scale(1.04); }
 .profile-social-links a:active { transform: scale(.92); }
-@media (max-width: 24rem) {
-  .profile-social { margin-inline-start: 0; }
-  .profile-log { flex-basis: 100%; }
+@media (max-width: 36rem) {
+  .profile-log { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .profile-log-icon, .profile-log-arrow { grid-row: 1 / span 2; }
+  .profile-log-date { grid-column: 2; }
 }
 
 /* ================================================================
